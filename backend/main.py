@@ -22,7 +22,7 @@ from profile_extractor import extract_profile
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
 gemini_client = (
     genai.Client(api_key=GEMINI_API_KEY)
@@ -328,7 +328,6 @@ async def generate_gemini_response(
                     system_instruction=system_instruction,
                     response_mime_type="application/json",
                     response_schema=response_model,
-                    temperature=0.7,
                     max_output_tokens=1200
                 )
             ),
