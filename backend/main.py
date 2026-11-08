@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import asyncio
 from typing import Literal, Optional
 
 import fitz
@@ -318,16 +319,19 @@ async def generate_gemini_response(
         )
 
     try:
-        response = await gemini_client.aio.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                response_schema=response_model,
-                temperature=0.7,
-                max_output_tokens=1200
-            )
+        response = await asyncio.wait_for(
+            gemini_client.aio.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    response_mime_type="application/json",
+                    response_schema=response_model,
+                    temperature=0.7,
+                    max_output_tokens=1200
+                )
+            ),
+            timeout=45
         )
 
         if not response.text:
@@ -341,13 +345,19 @@ async def generate_gemini_response(
     except HTTPException:
         raise
 
+    except asyncio.TimeoutError:
+        print("GEMINI TIMEOUT: request exceeded 45 seconds.", flush=True)
+        raise HTTPException(
+            status_code=504,
+            detail="Riya's AI response took too long. Please try again."
+        )
+
     except Exception as e:
         print("GEMINI ACTUAL ERROR:", repr(e), flush=True)
-
-    raise HTTPException(
-        status_code=502,
-        detail="The AI service could not complete the request. Please try again."
-    )
+        raise HTTPException(
+            status_code=502,
+            detail="The AI service could not complete the request. Please try again."
+        )
 
 def build_gemini_contents(
     history: list[dict],
