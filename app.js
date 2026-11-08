@@ -153,31 +153,44 @@ function setState(state, label) {
 }
 
 async function backendRequest(endpoint, data) {
-    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
-    });
-
-    let result;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
 
     try {
-        result = await response.json();
-    } catch {
-        throw new Error("The backend returned an invalid response.");
-    }
+        const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data),
+            signal: controller.signal
+        });
 
-    if (!response.ok) {
-        throw new Error(
-            result.detail ||
-            result.message ||
-            `Request failed (${response.status}).`
-        );
-    }
+        let result;
 
-    return result;
+        try {
+            result = await response.json();
+        } catch {
+            throw new Error("The backend returned an invalid response.");
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                result.detail ||
+                result.message ||
+                `Request failed (${response.status}).`
+            );
+        }
+
+        return result;
+    } catch (error) {
+        if (error.name === "AbortError") {
+            throw new Error("Riya's response took too long. Please try again.");
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 }
 
 // ==================================================
