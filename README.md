@@ -50,7 +50,7 @@ Browser speech recognition support varies. It works best in desktop Google Chrom
 
 ## 2. Deploy the backend to Railway
 
-1. Connect `AnushaKallempudi12/vee_bot` to Railway.
+1. Connect `AnushaKallempudi12/vee_bot` to Railway and set the deployment branch to `main`.
 2. Set the service's **Root Directory** to `/backend`.
 3. Set the build command to:
 
