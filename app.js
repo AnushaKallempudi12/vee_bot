@@ -564,8 +564,7 @@ function updateInterviewDisplay(message, topic) {
     }
 
     if (progressText) {
-        progressText.textContent =
-            `Questions and responses: ${Math.floor(interviewHistory.length / 2)}`;
+        progressText.textContent = String(Math.max(1, assistantQuestionCount));
     }
 
     const nextButton = $("#nextQuestion");
@@ -1044,7 +1043,7 @@ function showInterview() {
     if (questionType) questionType.textContent = "STARTING INTERVIEW";
 
     const progressText = $("#progressText");
-    if (progressText) progressText.textContent = "Your interview has started";
+    if (progressText) progressText.textContent = "Waiting for Riya's first question...";
 
     return startTextInterview();
 }
@@ -1488,15 +1487,54 @@ addClick("#endButton", () => {
 // ==================================================
 
 addClick("#practiceAgain", () => {
+    clearInterviewTimer();
+    stopRiyaSpeaking();
+
+    if (recognition) {
+        recognition.onend = null;
+        recognition.onerror = null;
+        try { recognition.abort(); } catch {}
+        recognition = null;
+    }
+
     interviewHistory = [];
     extractedProfile = {};
+    currentTranscript = "";
     currentQuestion = "";
+    file = null;
+    prep = "questions";
 
     interviewActive = false;
     endingInterview = false;
     requestInProgress = false;
+    recording = false;
+    interviewTimeExpired = false;
 
+    if (pdfInput) pdfInput.value = "";
+    $("#uploadArea")?.classList.add("hidden");
+    const uploadTitle = $("#uploadTitle");
+    const uploadSub = $("#uploadSub");
+    if (uploadTitle) uploadTitle.textContent = "Choose a PDF file";
+    if (uploadSub) uploadSub.textContent = "PDF only · Up to 10 MB";
+    $(".prep-option").forEach(option => {
+        option.classList.toggle("selected", option.dataset.prep === "questions");
+    });
+
+    profileFields?.replaceChildren();
+    profileEmptyMessage?.classList.add("hidden");
+    $("#riyaTextFallback")?.remove();
     $("#riyaFeedback")?.remove();
+
+    const caption = $("#captionBox");
+    if (caption) caption.textContent = "Your spoken answer will appear here.";
+    const questionText = $("#questionText");
+    if (questionText) questionText.textContent = "";
+    const questionType = $("#questionType");
+    if (questionType) questionType.textContent = "GETTING TO KNOW YOU";
+    const progress = $("#progressText");
+    if (progress) progress.textContent = "1";
+    const questionNumber = $("#questionNumber");
+    if (questionNumber) questionNumber.textContent = "01";
 
     showSetup();
 });
