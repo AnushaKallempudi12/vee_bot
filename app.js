@@ -49,6 +49,12 @@ let interviewTimer = null;
 let interviewTimeExpired = false;
 
 let liveSession = null;
+let liveAi = null;
+let liveToken = null;
+let liveModel = null;
+let liveResumptionHandle = null;
+let liveReconnectPromise = null;
+let liveReconnectInProgress = false;
 let liveAudioContext = null;
 let liveMediaStream = null;
 let liveAudioProcessor = null;
@@ -694,7 +700,75 @@ function commitLiveTurn() {
     }
 }
 
+function liveSessionConfig(handle = null) {
+    return {
+        responseModalities: ["AUDIO"],
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        sessionResumption: handle ? { handle } : {},
+        contextWindowCompression: { slidingWindow: {} }
+    };
+}
+
+function liveSessionCallbacks() {
+    return {
+        onmessage: handleLiveMessage,
+        onerror: event => {
+            console.error("Gemini Live error:", event);
+            if (!endingInterview) notify("The live voice connection encountered an error. Please try again.");
+        },
+        onclose: event => {
+            console.warn("Gemini Live closed:", event?.reason || "connection closed");
+            if (endingInterview || liveReconnectInProgress) return;
+            if (liveResumptionHandle) {
+                reconnectLiveSession();
+            } else if (interviewActive) {
+                setState("idle", "Voice connection closed");
+                notify("Riya's voice connection closed. Please end this session and try again.");
+            }
+        }
+    };
+}
+
+async function reconnectLiveSession() {
+    if (!liveAi || !liveResumptionHandle || liveReconnectPromise || endingInterview) return liveReconnectPromise;
+    const handle = liveResumptionHandle;
+    liveReconnectPromise = (async () => {
+        const previousSession = liveSession;
+        liveSession = null;
+        liveReconnectInProgress = true;
+        setState("thinking", "Reconnecting to Riya");
+        try {
+            if (previousSession) {
+                try { previousSession.close(); } catch {}
+            }
+            liveSession = await liveAi.live.connect({
+                model: liveModel,
+                config: liveSessionConfig(handle),
+                callbacks: liveSessionCallbacks()
+            });
+            setState("listening", "Riya is listening");
+        } catch (error) {
+            console.error("Gemini Live resume failed:", error);
+            notify("Riya could not resume the voice connection. Please end this session and try again.");
+        } finally {
+            liveReconnectInProgress = false;
+            liveReconnectPromise = null;
+        }
+    })();
+    return liveReconnectPromise;
+}
+
 function handleLiveMessage(message) {
+    const resumeUpdate = message?.sessionResumptionUpdate || message?.session_resumption_update;
+    if (resumeUpdate?.resumable && resumeUpdate?.newHandle) {
+        liveResumptionHandle = resumeUpdate.newHandle;
+    }
+    const goAway = message?.goAway || message?.go_away;
+    if (goAway && liveResumptionHandle) {
+        reconnectLiveSession();
+    }
+
     const serverContent = message?.serverContent;
     if (!serverContent) return;
 
