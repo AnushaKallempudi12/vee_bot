@@ -49,6 +49,9 @@ jobs:
       - name: Compile backend Python files
         run: python -m compileall -q backend
 
+      - name: Test PDF extraction and visa classification
+        run: python -m unittest discover -s backend -p "test_*.py"
+
   deploy:
     name: Publish Riya AI static frontend
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

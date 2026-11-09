@@ -5,7 +5,7 @@ from typing import Optional
 # Interview-relevant fields only. Never extract passport numbers, SEVIS IDs,
 # DS-160 confirmation numbers, dates of birth, contact details, or home addresses.
 ALLOWED_FIELDS = {
-    "travel_purpose": ["purpose of trip", "purpose of trip to the us", "purpose of travel", "purpose of your trip to us", "purpose of visit"],
+    "travel_purpose": ["purpose of trip", "purpose of trip to the us", "purpose of trip to the u s", "purpose of travel", "purpose of your trip to us", "purpose of visit"],
     "travel_duration": ["intended length of stay", "intended length of stay in us", "length of stay", "duration of trip"],
     "travel_destinations": ["locations you plan to visit", "cities you plan to visit", "places to be visited", "intended locations"],
     "trip_payer": ["person entity paying for your trip", "person company paying for your trip", "person paying for your trip", "who is paying for your trip", "payer of trip"],
@@ -96,9 +96,8 @@ def _value_after_label(line: str, labels: set[str]):
         if normalized == label:
             return label, None
         if normalized.startswith(label + " "):
-            words = label.split()
-            original_words = re.split(r"\s+", line.strip())
-            remainder = " ".join(original_words[len(words):]).strip(" :|\t-")
+            label_pattern = r"^\\s*" + r"[\\W_]*".join(re.escape(word) for word in label.split()) + r"[\\W_]*"
+            remainder = re.sub(label_pattern, "", line, count=1, flags=re.I).strip(" :|\\t-")
             return label, remainder or None
     return None, None
 
@@ -129,13 +128,13 @@ def detect_visa_category(text: str, document_type: Optional[str] = None) -> dict
             return {"detected_visa_type": mapping[token], "visa_detection_confidence": "high"}
     if "spouse child of an f1 student" in normalized or "dependent of an f1 student" in normalized:
         return {"detected_visa_type": "F2", "visa_detection_confidence": "high"}
-    if "dependent of an h1b" in normalized or "spouse of an h1b" in normalized:
+    if "dependent of an h1b" in normalized or "spouse of an h1b" in normalized or "spouse child of an h1b" in normalized:
         return {"detected_visa_type": "H4", "visa_detection_confidence": "high"}
-    if "temporary business or pleasure visitor" in normalized:
+    if "temporary business or pleasure visitor" in normalized or "temp business or pleasure visitor" in normalized:
         return {"detected_visa_type": "B1/B2", "visa_detection_confidence": "high"}
     if "academic or language student" in normalized:
         return {"detected_visa_type": "F1", "visa_detection_confidence": "high"}
-    if "temporary worker in a specialty occupation" in normalized:
+    if "temporary worker in a specialty occupation" in normalized or "temporary worker in specialty occupation" in normalized:
         return {"detected_visa_type": "H1B", "visa_detection_confidence": "high"}
     if "temporary worker" in normalized:
         return {"detected_visa_type": None, "visa_detection_confidence": "ambiguous"}
