@@ -158,3 +158,51 @@
 .topbar,main,.footer{position:relative;z-index:1}
 @media(max-width:700px){.visa-floater{width:36px;height:36px;font-size:18px;opacity:.25}.floater-calendar,.floater-check{display:none}.floater-passport{left:2%;top:22%}.floater-plane{right:2%;top:28%}.floater-globe{left:2%;top:68%}.floater-document{right:2%;top:72%}.floater-chat{right:18%;top:84%}.floater-luggage{right:3%;top:50%}}
 @media(prefers-reduced-motion:reduce){.visa-floater{animation:none!important}}
+
+
+/* Riya motion system: fast marquee + edge-only visa accents */
+.visa-floaters{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.visa-floater{width:42px;height:42px;border-radius:14px;opacity:.52;filter:drop-shadow(0 8px 20px rgba(10,5,25,.3));background:rgba(36,24,58,.74);border-color:rgba(205,180,255,.25);transition:transform .25s ease,opacity .25s ease}
+.floater-passport{left:1.5%;top:20%}
+.floater-plane{right:1.5%;top:22%}
+.floater-globe{left:1.5%;top:70%}
+.floater-document{right:1.5%;top:68%}
+.floater-calendar{left:2%;top:46%}
+.floater-chat{right:2%;top:43%}
+.floater-check{left:3%;top:87%}
+.floater-luggage{right:3%;top:86%}
+.visa-motion-strip{position:relative;z-index:2;overflow:hidden;margin:0 0 20px;padding:17px 0;border-top:1px solid rgba(198,168,255,.16);border-bottom:1px solid rgba(198,168,255,.16);background:linear-gradient(90deg,rgba(49,31,78,.78),rgba(27,19,44,.94),rgba(49,31,78,.78));box-shadow:0 12px 38px rgba(5,2,15,.16)}
+.visa-motion-track{display:flex;width:max-content;animation:visa-marquee 24s linear infinite;will-change:transform}
+.visa-motion-strip:hover .visa-motion-track{animation-play-state:paused}
+.visa-motion-group{display:flex;align-items:center;gap:35px;padding-right:35px;white-space:nowrap}
+.visa-motion-group span{display:inline-flex;align-items:center;gap:11px;color:#cbbbe4;font-size:10px;font-weight:700;letter-spacing:1.7px}
+.visa-motion-group span b{font-size:21px;font-weight:400;filter:drop-shadow(0 0 9px rgba(187,151,255,.35));transition:transform .25s ease}
+.visa-motion-group span:hover b{transform:translateY(-5px) rotate(-12deg) scale(1.25)}
+.visa-motion-group>i{font-style:normal;color:#a77af4;font-size:13px}
+@keyframes visa-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+/* Taller, more expressive Riya silhouette */
+.mascot-stage:not(.small){width:340px;height:440px}
+.mascot-stage:not(.small) .mascot{width:220px;height:360px;transform-origin:50% 88%}
+.mascot-stage:not(.small) .head{width:184px;height:151px;left:18px;top:25px;border-radius:47% 47% 42% 42%}
+.mascot-stage:not(.small) .face{width:136px;height:88px;left:24px;top:37px;gap:34px}
+.mascot-stage:not(.small) .eye{width:15px;height:21px}
+.mascot-stage:not(.small) .cheek{top:60px}
+.mascot-stage:not(.small) .mouth{top:68px}
+.mascot-stage:not(.small) .antenna{left:105px;top:0;height:31px}
+.mascot-stage:not(.small) .ear{top:82px;height:49px;width:26px}
+.mascot-stage:not(.small) .ear-left{left:0}
+.mascot-stage:not(.small) .ear-right{right:0}
+.mascot-stage:not(.small) .neck{top:169px;left:91px;width:40px;height:24px}
+.mascot-stage:not(.small) .body{top:183px;left:43px;width:134px;height:119px;border-radius:42px 42px 31px 31px}
+.mascot-stage:not(.small) .body-core{top:40px;left:54px;width:27px;height:27px}
+.mascot-stage:not(.small) .body-highlight{left:30px;top:16px;width:43px}
+.mascot-stage:not(.small) .arm{top:194px;width:27px;height:91px}
+.mascot-stage:not(.small) .arm-left{left:22px}
+.mascot-stage:not(.small) .arm-right{right:15px}
+.mascot-stage:not(.small) .hand{width:31px;height:28px}
+.mascot-stage:not(.small) .leg{top:292px;width:32px;height:49px;border-radius:11px 11px 14px 14px}
+.mascot-stage:not(.small) .leg-left{left:69px}
+.mascot-stage:not(.small) .leg-right{right:68px}
+@media(max-width:900px){.visa-floater{opacity:.32;width:36px;height:36px;font-size:18px}.mascot-stage:not(.small){transform:scale(.93)}}
+@media(max-width:650px){.visa-motion-strip{margin-bottom:8px;padding:13px 0}.visa-motion-track{animation-duration:19s}.visa-motion-group{gap:24px;padding-right:24px}.visa-motion-group span{font-size:9px}.visa-motion-group span b{font-size:18px}.visa-floater{opacity:.22;width:32px;height:32px}.floater-calendar,.floater-check,.floater-chat,.floater-luggage{display:none}.mascot-stage:not(.small){transform:scale(.84);transform-origin:top center;margin-bottom:-55px}}
+@media(prefers-reduced-motion:reduce){.visa-motion-track{animation:none!important}.visa-floater{animation:none!important}}
