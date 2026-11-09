@@ -769,3 +769,130 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* Responsive layout refinements: desktop, tablet and mobile */
+@media (max-width: 900px) {
+  .topbar { padding-left: 5%; padding-right: 5%; }
+  .page-section { padding-left: 6%; padding-right: 6%; }
+  .hero { min-height: 0; grid-template-columns: 1fr; gap: 18px; padding-top: 42px; padding-bottom: 52px; }
+  .hero-copy { max-width: 680px; }
+  .hero-visual { min-height: 390px; height: auto; }
+  .hero-caption { right: 4%; }
+  .about-section { grid-template-columns: 1fr 1fr; gap: 5%; }
+  .app-content { padding: 38px 26px 55px; }
+  .visa-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 650px) {
+  .topbar { min-height: 68px; height: auto; padding: 12px 5%; gap: 10px; }
+  .brand { font-size: 20px; }
+  .top-actions { gap: 9px; }
+  .language-pill { display: none; }
+  .top-actions .button { padding: 10px 12px; font-size: 11px; }
+  .page-section { padding-left: 6%; padding-right: 6%; }
+  .hero { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding-top: 38px; padding-bottom: 42px; }
+  .hero-copy { width: 100%; }
+  .hero h1 { font-size: clamp(39px, 10vw, 52px); letter-spacing: -2px; line-height: 1.08; }
+  .hero-description { font-size: 14px; line-height: 1.7; }
+  .hero-actions { flex-wrap: wrap; gap: 17px; }
+  .trust-row { margin-top: 28px; gap: 9px; }
+  .hero-visual { width: 100%; min-height: 335px; height: auto; margin-top: 6px; }
+  .riya-presence { height: 330px; width: min(300px, 82vw); }
+  .floating-chip { font-size: 9px; padding: 9px 11px; }
+  .chip-top { top: 16px; right: 0; }
+  .chip-bottom { bottom: 25px; left: 0; }
+  .hero-caption { bottom: -3px; right: 0; }
+  .how-section { padding-top: 52px; padding-bottom: 60px; }
+  .section-heading h2, .about-copy h2 { font-size: 31px; }
+  .steps-grid { grid-template-columns: 1fr; gap: 12px; margin-top: 28px; }
+  .step-card { min-height: 0; padding: 22px; }
+  .about-section { display: flex; flex-direction: column; align-items: stretch; gap: 18px; padding-top: 38px; padding-bottom: 55px; }
+  .about-visual { height: 240px; }
+  .mini-mascot-wrap { transform: scale(.82); }
+  .cta-section { padding-bottom: 50px; }
+  .cta-card { min-height: 0; padding: 30px 24px; }
+  .cta-content h2 { font-size: 28px; }
+  .cta-orb { right: 5%; font-size: 66px; opacity: .55; }
+  .footer { flex-direction: column; align-items: flex-start; padding: 22px 6%; line-height: 1.7; }
+  .app-top { min-height: 66px; height: auto; padding: 12px 4%; gap: 8px; }
+  .app-brand { font-size: 17px; }
+  .back-home { font-size: 10px; padding: 6px 0; }
+  .step-indicator { gap: 6px; font-size: 9px; }
+  .step-indicator i { width: 22px; }
+  .app-content { padding: 28px 16px 44px; }
+  .setup-panel h2, .complete-panel h2 { font-size: 32px; }
+  .visa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .visa-option { min-height: 82px; padding: 10px 9px; }
+  .visa-option strong { font-size: 11px; }
+  .visa-option small { font-size: 9px; line-height: 1.35; }
+  .language-options { grid-template-columns: 1fr; }
+  .setup-footer { align-items: stretch; flex-direction: column; gap: 14px; }
+  .setup-footer .button { width: 100%; }
+  .interview-heading { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .interview-heading h2 { font-size: 23px; }
+  .interview-room { grid-template-columns: 1fr; }
+  .room-visual { min-height: 300px; }
+  .question-panel { padding: 25px 18px; }
+  .question-text { font-size: 20px; margin: 25px 0 18px; min-height: 0; }
+  .answer-controls { flex-wrap: wrap; }
+  .mic-button { min-width: 100%; }
+  .interview-bottom { gap: 12px; flex-wrap: wrap; }
+  .complete-panel { margin: 45px auto; padding: 0 8px; }
+}
+@media (max-width: 390px) {
+  .hero h1 { font-size: 37px; }
+  .hero .eyebrow { font-size: 9px; letter-spacing: 1.3px; }
+  .visa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-content { padding-left: 13px; padding-right: 13px; }
+  .step-indicator i { width: 16px; }
+}
+
+/* Spread the ambient visa icons across the full hero canvas, not only the portrait side.
+   The icons remain behind text and controls, so they never obstruct reading or tapping. */
+.hero { position: relative; isolation: isolate; }
+.hero-copy, .hero-visual { position: relative; z-index: 2; }
+.hero .visa-floaters {
+  left: 0 !important; right: 0 !important; width: 100% !important;
+  top: 0 !important; bottom: 0 !important; height: 100% !important;
+  z-index: 1 !important; pointer-events: none; overflow: hidden;
+}
+.hero .visa-floaters::before { width: 88%; height: 78%; }
+.hero .visa-floaters::after { width: 68%; height: 58%; }
+.hero .visa-floater { opacity: .62 !important; }
+.hero .floater-passport { left: 3% !important; top: 18% !important; }
+.hero .floater-plane { left: 20% !important; top: 78% !important; }
+.hero .floater-globe { left: 38% !important; top: 8% !important; }
+.hero .floater-document { left: 57% !important; top: 83% !important; }
+.hero .floater-calendar { left: 76% !important; top: 15% !important; }
+.hero .floater-chat { left: 93% !important; top: 62% !important; }
+.hero .floater-check { left: 8% !important; top: 57% !important; }
+.hero .floater-luggage { left: 31% !important; top: 43% !important; }
+.hero .floater-pin { left: 68% !important; top: 49% !important; }
+.hero .floater-study { left: 84% !important; top: 39% !important; }
+.hero .floater-briefcase { left: 49% !important; top: 12% !important; }
+@media (max-width: 900px) {
+  .hero .visa-floater { opacity: .48 !important; }
+}
+@media (max-width: 650px) {
+  .hero .visa-floaters { left: 0 !important; width: 100% !important; }
+  .hero .visa-floaters::before { width: 118%; height: 58%; }
+  .hero .visa-floaters::after { width: 96%; height: 43%; }
+  .hero .visa-floater { width: 29px; height: 29px; border-radius: 10px; font-size: 14px; opacity: .46 !important; }
+  .hero .floater-passport { left: 2% !important; top: 28% !important; }
+  .hero .floater-plane { left: 82% !important; top: 24% !important; }
+  .hero .floater-globe { left: 9% !important; top: 69% !important; }
+  .hero .floater-document { left: 88% !important; top: 68% !important; display: grid !important; }
+  .hero .floater-calendar { left: 48% !important; top: 7% !important; }
+  .hero .floater-chat { left: 91% !important; top: 47% !important; }
+  .hero .floater-check { left: 4% !important; top: 48% !important; }
+  .hero .floater-luggage { left: 22% !important; top: 89% !important; }
+  .hero .floater-pin { left: 74% !important; top: 88% !important; }
+  .hero .floater-study, .hero .floater-briefcase { display: grid !important; }
+  .hero .floater-study { left: 63% !important; top: 34% !important; }
+  .hero .floater-briefcase { left: 36% !important; top: 58% !important; }
+  .hero .hero-copy { z-index: 2; }
+  .hero .hero-visual { z-index: 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero .visa-floater, .hero .visa-floaters::before, .hero .visa-floaters::after { animation: none !important; }
+}
