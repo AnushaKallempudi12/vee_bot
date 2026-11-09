@@ -332,6 +332,25 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
         role = "model" if item["role"] == "assistant" else "user"
         contents.append({"role": role, "parts": [{"text": item["content"]}]})
 
+    if response_model.__name__ == "InterviewAIResponse":
+        output_contract = (
+            'Return exactly one JSON object with these fields: '
+            '{"assistant_message":"the spoken response or next question",'
+            '"topic":"short_snake_case_topic","interview_complete":false}. '
+            "Do not wrap the JSON in Markdown."
+        )
+    elif response_model.__name__ == "InterviewFeedback":
+        output_contract = (
+            'Return exactly one JSON object with these fields: '
+            '{"overall_summary":"string","strengths":["string"],'
+            '"improvement_areas":["string"],"practice_tips":["string"],'
+            '"consistency_notes":["string"],"disclaimer":"string"}. '
+            "Do not wrap the JSON in Markdown."
+        )
+    else:
+        output_contract = "Return one JSON object matching the requested response fields."
+
+    instructions = instructions + "\\n\\n" + output_contract
     endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_TEXT_MODEL}:generateContent"
     payload = {
         "systemInstruction": {"parts": [{"text": instructions}]},
