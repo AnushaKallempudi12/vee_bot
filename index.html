@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=riya-ui-20261109-14" />
+  <link rel="stylesheet" href="styles.css?v=riya-3d-20261109-15" />
 </head>
 
 <body>
@@ -21,7 +21,7 @@
 
   <header class="topbar">
     <a class="brand" href="#" aria-label="Riya AI home" data-home>
-      <span class="brand-wordmark" aria-hidden="true"><svg viewBox="0 0 190 58"><text x="2" y="43">Riya</text><path d="M105 46 C132 42 149 24 166 9"/><path d="M155 8 L171 2 L165 18 L161 12 Z"/></svg></span>
+      <span class="brand-name">Riya <b>AI</b></span>
     </a>
 
 
@@ -92,7 +92,7 @@
           Here to help you prepare
         </div>
 
-        <button class="riya-presence" id="heroMascot" type="button" data-state="idle" aria-label="Say hello to Riya, your AI practice companion"><img src="assets/riya-avatar.webp" alt="Riya, the friendly purple-haired AI visa interview companion"></button>
+        <div class="riya-presence" id="heroMascot" role="img" aria-label="Interactive 3D Riya AI robot"><canvas id="riya3dCanvas"></canvas><span class="riya-canvas-fallback" aria-hidden="true">Riya</span></div>
 
         <div class="riya-speech" id="riyaSpeech" role="status">
           <strong>Hi, I'm Riya!</strong>
@@ -159,7 +159,7 @@
 
   <footer class="footer">
     <a class="brand footer-brand" href="#" data-home>
-      <span class="brand-wordmark" aria-hidden="true"><svg viewBox="0 0 190 58"><text x="2" y="43">Riya</text><path d="M105 46 C132 42 149 24 166 9"/><path d="M155 8 L171 2 L165 18 L161 12 Z"/></svg></span>
+      <span class="brand-name">Riya <b>AI</b></span>
     </a>
 
     <span>Riya is an independent practice tool, not a government service or immigration attorney. Interview text is processed by Google Gemini. Avoid entering passport numbers, government identifiers, account numbers, or other highly sensitive details.</span>
@@ -175,7 +175,7 @@
       </button>
 
       <a class="app-brand" href="#" aria-label="Riya AI">
-        <span class="brand-wordmark" aria-hidden="true"><svg viewBox="0 0 190 58"><text x="2" y="43">Riya</text><path d="M105 46 C132 42 149 24 166 9"/><path d="M155 8 L171 2 L165 18 L161 12 Z"/></svg></span>
+        <span class="brand-name">Riya <b>AI</b></span>
       </a>
 
       <div class="step-indicator">
@@ -494,5 +494,6 @@ Live voice practice: Riya listens, responds, and adapts each follow-up to your a
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="app.js?v=riya-ui-20261109-14"></script>
+<script type="module" src="riya-3d.js?v=1"></script>
 </body>
 </html>
