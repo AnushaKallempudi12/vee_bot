@@ -1057,9 +1057,24 @@ function showSetup() {
 }
 
 function showInterview() {
+    // Force the practice overlay and interview panel visible before starting audio.
+    // This prevents an audio-only session if a previous screen left a hidden state behind.
+    if (app) {
+        app.classList.remove("hidden");
+        app.style.display = "block";
+        app.style.visibility = "visible";
+        app.style.opacity = "1";
+        app.style.zIndex = "10000";
+    }
+
     setup?.classList.add("hidden");
     profileReview?.classList.add("hidden");
     interview?.classList.remove("hidden");
+    if (interview) {
+        interview.style.display = "block";
+        interview.style.visibility = "visible";
+        interview.style.opacity = "1";
+    }
     complete?.classList.add("hidden");
 
     updateStep(
@@ -1106,6 +1121,12 @@ function showInterview() {
     if (questionText) {
         questionText.textContent = "Riya is getting ready...";
     }
+
+    // Bring the interview panel into the visible viewport on desktop and mobile.
+    requestAnimationFrame(() => {
+        app?.scrollTo({ top: 0, behavior: "instant" });
+        interview?.scrollIntoView({ block: "start", behavior: "instant" });
+    });
 
     const questionType = $("#questionType");
     if (questionType) questionType.textContent = "STARTING INTERVIEW";

@@ -744,3 +744,28 @@
 .visa-mismatch{border:1px solid rgba(255,120,120,.42);background:rgba(120,35,50,.18);border-radius:14px;padding:16px;margin:16px 0;color:#ffe6e6}
 .visa-mismatch-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 .profile-review-notice:not(.visa-mismatch){margin:16px 0}
+
+
+/* Emergency visibility guard for the active interview screen */
+#appShell:not(.hidden) {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 10000 !important;
+}
+#appShell:not(.hidden) #interviewPanel:not(.hidden) {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  min-height: 60vh;
+}
+#appShell:not(.hidden) #interviewPanel .interview-room {
+  display: grid !important;
+}
+@media (max-width: 650px) {
+  #appShell:not(.hidden) #interviewPanel .interview-room {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+}
