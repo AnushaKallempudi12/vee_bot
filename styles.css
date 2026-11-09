@@ -701,3 +701,40 @@
  .hero .floater-document,.hero .floater-study,.hero .floater-briefcase{display:none!important}
  .riya-presence{height:350px;width:min(320px,100%)}
 }
+
+
+/* Riya avatar replacement: use the supplied character artwork, not procedural robot geometry */
+.riya-presence{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:visible;
+  isolation:isolate;
+}
+.riya-avatar-image{
+  display:block;
+  position:relative;
+  z-index:2;
+  width:100%;
+  height:100%;
+  max-width:100%;
+  object-fit:contain;
+  object-position:center bottom;
+  filter:drop-shadow(0 22px 34px rgba(105,75,170,.24));
+  animation:riya-avatar-gentle-float 5.8s ease-in-out infinite;
+  transform-origin:50% 72%;
+}
+@keyframes riya-avatar-gentle-float{
+  0%,100%{transform:translate3d(0,0,0)}
+  50%{transform:translate3d(0,-8px,0)}
+}
+@media(prefers-reduced-motion:reduce){
+  .riya-avatar-image{animation:none}
+}
+@media(max-width:900px){
+  .riya-presence{height:390px;width:min(350px,100%)}
+}
+@media(max-width:650px){
+  .riya-presence{height:350px;width:min(320px,100%)}
+}
