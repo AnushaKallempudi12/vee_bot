@@ -31,7 +31,7 @@ ALLOWED_FIELDS = {
 
 NAME_LABELS = {
     "student name", "students name", "student s name", "applicant name", "full name",
-    "surname primary name", "surname family name", "surname",
+    "surname primary name", "surname family name", "surname", "name provided",
     "surnames", "given names", "given name", "first name",
 }
 DOCUMENT_MARKERS = {
@@ -180,7 +180,12 @@ def extract_profile(text: str) -> dict:
             }:
                 value = None
             if value:
-                if normalized_label in {"surnames", "surname", "surname primary name", "surname family name"}:
+                # DS-160 commonly prints Name Provided as SURNAME, GIVEN NAME.
+                # Keep only the applicant's given/first name for the interview greeting.
+                if normalized_label == "name provided" and "," in value:
+                    given_name = value.split(",", 1)[1].strip().split()
+                    value = given_name[0] if given_name else None
+                if value and normalized_label in {"surnames", "surname", "surname primary name", "surname family name"}:
                     name_parts["surname"] = value
                 elif normalized_label in {"given names", "given name", "first name"}:
                     name_parts["given"] = value
