@@ -74,7 +74,7 @@ jobs:
           index = Path("_site/index.html")
           html = index.read_text()
           html, replacements = re.subn(
-              r'app\\.js(?:\\?v=[^"]*)?(?=")',
+              r'app\.js(?:\?v=[^"]*)?(?=")',
               f'app.js?v={os.environ["GITHUB_SHA"]}',
               html,
           )
