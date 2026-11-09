@@ -126,16 +126,21 @@ SENSITIVE_PATTERNS = [
 ]
 
 ALLOWED_PROFILE_FIELDS = {
+    "document_type",
+    "applicant_name",
     "travel_purpose",
     "travel_duration",
     "travel_destinations",
     "trip_payer",
     "university",
     "study_program",
+    "degree_level",
     "employer",
     "job_title",
     "job_duties",
     "relationship_to_student",
+    "funding_source",
+    "previous_education",
 }
 
 
@@ -293,7 +298,10 @@ PERSONALITY:
 
 INTERVIEW RULES:
 - Start by introducing yourself as Riya.
-- Ask the applicant what name they prefer to be called.
+- If the reviewed document includes an applicant name, address the applicant by that name and do NOT ask them to repeat their name.
+- If no applicant name was extracted, ask what name they prefer to be called.
+- When a document profile is available, make the uploaded DS-160 or I-20 the primary source for personalized questions. Ask about its actual extracted details (such as the school, program, travel purpose, funding source, or employment) rather than defaulting to generic opening questions.
+- Do not claim a document contains a detail unless that field appears in the reviewed profile.
 - Conduct a realistic practice interview.
 - Conduct a time-bounded mock interview; the application controls the session duration and ends the session when time expires.
 - Adapt every next question to the applicant's previous answer and the selected visa category.
@@ -316,7 +324,8 @@ VISA-SPECIFIC GUIDANCE:
 USER-REVIEWED PROFILE:
 {profile_context}
 
-Use profile details only as background context.
+Use profile details as the main context for a document-based interview, not merely as background.
+Prioritize one relevant, specific question about a document detail that has not yet been discussed. Ask a clarification when a value is unclear or inconsistent.
 If a detail is missing, ask the applicant naturally.
 Never assume that a missing detail is true.
 
@@ -578,11 +587,28 @@ async def interview_chat(request: InterviewChatRequest):
     safe_history = sanitize_history(request.history)
 
     if request.start_interview:
-        current_message = (
-            "Start the mock interview now. Introduce yourself as Riya "
-            "and ask the applicant what name they prefer to be called. "
-            "Do not ask any other question in this first response."
-        )
+        if safe_profile.get("applicant_name"):
+            current_message = (
+                "Start the mock interview now. Introduce yourself as Riya, "
+                "greet the applicant as " + safe_profile["applicant_name"] + ", "
+                "and ask ONE specific opening question grounded in an extracted "
+                "detail from the reviewed " + safe_profile.get("document_type", "uploaded") +
+                " document. Do not ask the applicant to repeat their name. "
+                "Do not ask a generic question unrelated to the document."
+            )
+        elif safe_profile.get("document_type"):
+            current_message = (
+                "Start the mock interview now. Introduce yourself as Riya and "
+                "ask ONE specific opening question grounded in a detail from the "
+                "reviewed " + safe_profile["document_type"] +
+                " document. If no useful detail exists, ask the applicant's preferred name."
+            )
+        else:
+            current_message = (
+                "Start the mock interview now. Introduce yourself as Riya "
+                "and ask the applicant what name they prefer to be called. "
+                "Do not ask any other question in this first response."
+            )
     else:
         current_message = sanitize_text(request.user_message)
 
