@@ -55,6 +55,7 @@ let liveModel = null;
 let liveResumptionHandle = null;
 let liveReconnectPromise = null;
 let liveReconnectInProgress = false;
+let liveConnectionGeneration = 0;
 let liveAudioContext = null;
 let liveMediaStream = null;
 let liveAudioProcessor = null;
@@ -696,7 +697,7 @@ function commitLiveTurn() {
     }
 
     if (shouldEnd && interviewActive && !endingInterview) {
-        finishInterview(false);
+        finishInterview(true);
     }
 }
 
@@ -710,7 +711,7 @@ function liveSessionConfig(handle = null) {
     };
 }
 
-function liveSessionCallbacks() {
+function liveSessionCallbacks(generation) {
     return {
         onmessage: handleLiveMessage,
         onerror: event => {
@@ -719,6 +720,7 @@ function liveSessionCallbacks() {
         },
         onclose: event => {
             console.warn("Gemini Live closed:", event?.reason || "connection closed");
+            if (generation !== liveConnectionGeneration) return;
             if (endingInterview || liveReconnectInProgress) return;
             if (liveResumptionHandle) {
                 reconnectLiveSession();
@@ -735,6 +737,7 @@ async function reconnectLiveSession() {
     const handle = liveResumptionHandle;
     liveReconnectPromise = (async () => {
         const previousSession = liveSession;
+        const generation = ++liveConnectionGeneration;
         liveSession = null;
         liveReconnectInProgress = true;
         setState("thinking", "Reconnecting to Riya");
@@ -745,7 +748,7 @@ async function reconnectLiveSession() {
             liveSession = await liveAi.live.connect({
                 model: liveModel,
                 config: liveSessionConfig(handle),
-                callbacks: liveSessionCallbacks()
+                callbacks: liveSessionCallbacks(generation)
             });
             setState("listening", "Riya is listening");
         } catch (error) {
@@ -832,6 +835,7 @@ async function closeLiveVoiceSession() {
     liveResumptionHandle = null;
     liveReconnectPromise = null;
     liveReconnectInProgress = false;
+    liveConnectionGeneration += 1;
     liveMuted = false;
     $("#micButton")?.classList.remove("recording");
     const micLabel = $("#micLabel");
@@ -873,10 +877,11 @@ async function startLiveVoiceSession() {
         liveAudioContext = new AudioContext({ sampleRate: 16000 });
         await liveAudioContext.resume();
 
+        const generation = ++liveConnectionGeneration;
         liveSession = await liveAi.live.connect({
             model: liveModel,
             config: liveSessionConfig(),
-            callbacks: liveSessionCallbacks()
+            callbacks: liveSessionCallbacks(generation)
         });
 
         const audioSource = liveAudioContext.createMediaStreamSource(liveMediaStream);
