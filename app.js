@@ -826,6 +826,13 @@ async function closeLiveVoiceSession() {
         try { await liveAudioContext.close(); } catch {}
         liveAudioContext = null;
     }
+    liveAi = null;
+    liveToken = null;
+    liveModel = null;
+    liveResumptionHandle = null;
+    liveReconnectPromise = null;
+    liveReconnectInProgress = false;
+    liveMuted = false;
     $("#micButton")?.classList.remove("recording");
     const micLabel = $("#micLabel");
     if (micLabel) micLabel.textContent = "Microphone";
@@ -920,6 +927,10 @@ async function startLiveVoiceSession() {
         requestInProgress = false;
         console.error("Live voice startup failed:", error);
         await closeLiveVoiceSession();
+        interviewActive = false;
+        clearInterviewTimer();
+        interview?.classList.add("hidden");
+        setup?.classList.remove("hidden");
         notify(error.message || "Riya could not start the live voice interview.");
         setState("idle", "Riya is ready");
     }
