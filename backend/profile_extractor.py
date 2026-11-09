@@ -5,12 +5,12 @@ from typing import Optional
 # Interview-relevant fields only. Never extract passport numbers, SEVIS IDs,
 # DS-160 confirmation numbers, dates of birth, contact details, or home addresses.
 ALLOWED_FIELDS = {
-    "travel_purpose": ["purpose of trip", "purpose of travel", "purpose of your trip to us", "purpose of visit"],
+    "travel_purpose": ["purpose of trip", "purpose of trip to the us", "purpose of travel", "purpose of your trip to us", "purpose of visit"],
     "travel_duration": ["intended length of stay", "intended length of stay in us", "length of stay", "duration of trip"],
     "travel_destinations": ["locations you plan to visit", "cities you plan to visit", "places to be visited", "intended locations"],
-    "trip_payer": ["person entity paying for your trip", "person paying for your trip", "who is paying for your trip", "payer of trip"],
+    "trip_payer": ["person entity paying for your trip", "person company paying for your trip", "person paying for your trip", "who is paying for your trip", "payer of trip"],
     "university": ["name of institution", "name of school", "educational institution", "school name", "school"],
-    "study_program": ["course of study", "field of study", "program of study", "major", "primary major"],
+    "study_program": ["course of study", "field of study", "program of study", "major", "major 1", "primary major"],
     "degree_level": ["education level", "level of education", "program level", "degree level"],
     "employer": ["present employer or school name", "present employer", "employer name", "company name", "name of employer"],
     "job_title": ["job title", "occupation", "present occupation", "primary occupation"],
@@ -21,7 +21,7 @@ ALLOWED_FIELDS = {
 }
 
 NAME_LABELS = {
-    "student name", "students name", "applicant name", "full name",
+    "student name", "students name", "student s name", "applicant name", "full name",
     "surname primary name", "surname family name", "surname",
     "surnames", "given names", "given name", "first name",
 }
