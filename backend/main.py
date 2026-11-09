@@ -152,7 +152,7 @@ ALLOWED_PROFILE_FIELDS = {
 
 
 def sanitize_text(value: str) -> str:
-    """Redact common sensitive patterns before sending text to Gemini."""
+    """Redact common sensitive patterns before sending text to OpenAI."""
 
     value = re.sub(r"[\x00-\x1f\x7f]", " ", value)
 
@@ -544,8 +544,7 @@ LIVE VOICE CONVERSATION:
             upstream = await client.post(
                 "https://api.openai.com/v1/realtime/calls",
                 headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "OpenAI-Safety-Identifier": "riya-anonymous-practice-session"
+                    "Authorization": f"Bearer {OPENAI_API_KEY}"
                 },
                 files=[
                     ("sdp", (None, request.sdp)),
