@@ -144,14 +144,14 @@
 /* Subtle visa-themed floating accents */
 .visa-floaters{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0;contain:layout paint}
 .visa-floater{position:absolute;display:grid;place-items:center;width:48px;height:48px;border:1px solid rgba(205,180,255,.17);border-radius:15px;background:linear-gradient(145deg,rgba(49,34,76,.62),rgba(25,18,42,.42));box-shadow:0 10px 30px rgba(5,2,15,.16);font-size:23px;opacity:.42;filter:saturate(.78);will-change:transform}
-.floater-passport{left:5%;top:18%;animation:visa-drift-a 13s ease-in-out infinite}
-.floater-plane{right:8%;top:23%;animation:visa-drift-b 15s ease-in-out infinite}
-.floater-globe{left:12%;top:58%;animation:visa-drift-c 17s ease-in-out infinite}
-.floater-document{right:5%;top:66%;animation:visa-drift-a 16s ease-in-out -4s infinite}
-.floater-calendar{left:42%;top:12%;animation:visa-drift-b 19s ease-in-out -7s infinite}
-.floater-chat{right:28%;top:78%;animation:visa-drift-c 14s ease-in-out -3s infinite}
-.floater-check{left:27%;top:83%;animation:visa-drift-a 18s ease-in-out -8s infinite}
-.floater-luggage{right:17%;top:45%;animation:visa-drift-b 20s ease-in-out -5s infinite}
+.floater-passport{left:5%;top:18%;animation:visa-drift-a 5.2s ease-in-out infinite}
+.floater-plane{right:8%;top:23%;animation:visa-drift-b 6.1s ease-in-out infinite}
+.floater-globe{left:12%;top:58%;animation:visa-drift-c 6.8s ease-in-out infinite}
+.floater-document{right:5%;top:66%;animation:visa-drift-a 5.8s ease-in-out -1.5s infinite}
+.floater-calendar{left:42%;top:12%;animation:visa-drift-b 6.5s ease-in-out -2s infinite}
+.floater-chat{right:28%;top:78%;animation:visa-drift-c 5.5s ease-in-out -1s infinite}
+.floater-check{left:27%;top:83%;animation:visa-drift-a 6.3s ease-in-out -2.5s infinite}
+.floater-luggage{right:17%;top:45%;animation:visa-drift-b 6.9s ease-in-out -1.8s infinite}
 @keyframes visa-drift-a{0%,100%{transform:translate3d(0,0,0) rotate(-8deg)}50%{transform:translate3d(13px,-24px,0) rotate(7deg)}}
 @keyframes visa-drift-b{0%,100%{transform:translate3d(0,0,0) rotate(8deg)}50%{transform:translate3d(-16px,22px,0) rotate(-9deg)}}
 @keyframes visa-drift-c{0%,100%{transform:translate3d(0,0,0) rotate(-3deg)}50%{transform:translate3d(10px,-18px,0) rotate(10deg)}}
@@ -172,7 +172,7 @@
 .floater-check{left:3%;top:87%}
 .floater-luggage{right:3%;top:86%}
 .visa-motion-strip{position:relative;z-index:2;overflow:hidden;margin:0 0 20px;padding:17px 0;border-top:1px solid rgba(198,168,255,.16);border-bottom:1px solid rgba(198,168,255,.16);background:linear-gradient(90deg,rgba(49,31,78,.78),rgba(27,19,44,.94),rgba(49,31,78,.78));box-shadow:0 12px 38px rgba(5,2,15,.16)}
-.visa-motion-track{display:flex;width:max-content;animation:visa-marquee 24s linear infinite;will-change:transform}
+.visa-motion-track{display:flex;width:max-content;animation:visa-marquee 11s linear infinite;will-change:transform}
 .visa-motion-strip:hover .visa-motion-track{animation-play-state:paused}
 .visa-motion-group{display:flex;align-items:center;gap:35px;padding-right:35px;white-space:nowrap}
 .visa-motion-group span{display:inline-flex;align-items:center;gap:11px;color:#cbbbe4;font-size:10px;font-weight:700;letter-spacing:1.7px}
@@ -206,3 +206,27 @@
 @media(max-width:900px){.visa-floater{opacity:.32;width:36px;height:36px;font-size:18px}.mascot-stage:not(.small){transform:scale(.93)}}
 @media(max-width:650px){.visa-motion-strip{margin-bottom:8px;padding:13px 0}.visa-motion-track{animation-duration:19s}.visa-motion-group{gap:24px;padding-right:24px}.visa-motion-group span{font-size:9px}.visa-motion-group span b{font-size:18px}.visa-floater{opacity:.22;width:32px;height:32px}.floater-calendar,.floater-check,.floater-chat,.floater-luggage{display:none}.mascot-stage:not(.small){transform:scale(.84);transform-origin:top center;margin-bottom:-55px}}
 @media(prefers-reduced-motion:reduce){.visa-motion-track{animation:none!important}.visa-floater{animation:none!important}}
+
+/* More energetic travel icons */
+.visa-floater{opacity:.68;filter:saturate(1.05);box-shadow:0 12px 34px rgba(5,2,15,.24)}
+@keyframes visa-drift-a{0%,100%{transform:translate3d(0,0,0) rotate(-13deg)}25%{transform:translate3d(20px,-30px,0) rotate(8deg)}50%{transform:translate3d(-5px,-48px,0) rotate(15deg)}75%{transform:translate3d(-18px,-15px,0) rotate(-7deg)}}
+@keyframes visa-drift-b{0%,100%{transform:translate3d(0,0,0) rotate(12deg)}25%{transform:translate3d(-22px,24px,0) rotate(-10deg)}50%{transform:translate3d(-8px,-30px,0) rotate(-17deg)}75%{transform:translate3d(16px,-12px,0) rotate(7deg)}}
+@keyframes visa-drift-c{0%,100%{transform:translate3d(0,0,0) rotate(-8deg)}33%{transform:translate3d(22px,-24px,0) rotate(12deg)}66%{transform:translate3d(-14px,-42px,0) rotate(-14deg)}}
+/* More balanced, taller Riya proportions */
+.mascot-stage:not(.small) .head{width:174px;height:143px;left:23px;top:24px}
+.mascot-stage:not(.small) .face{width:132px;height:86px;left:21px;top:35px}
+.mascot-stage:not(.small) .body{top:180px;left:39px;width:142px;height:126px;border-radius:40px 40px 32px 32px}
+.mascot-stage:not(.small) .body-core{top:43px;left:57px;width:28px;height:28px}
+.mascot-stage:not(.small) .arm{top:190px;height:88px;width:26px}
+.mascot-stage:not(.small) .arm-left{left:20px}
+.mascot-stage:not(.small) .arm-right{right:17px}
+.mascot-stage:not(.small) .leg{top:302px;height:48px;width:31px}
+.mascot-stage:not(.small) .leg-left{left:66px}
+.mascot-stage:not(.small) .leg-right{right:65px}
+.visa-motion-strip{margin-top:0;margin-bottom:18px}
+@media(max-width:650px){
+ .visa-motion-group{gap:22px}
+ .visa-motion-group span{font-size:9px;letter-spacing:1.2px}
+ .visa-motion-strip{padding:11px 0;margin-bottom:8px}
+ .visa-floater{width:39px;height:39px;font-size:19px}
+}
