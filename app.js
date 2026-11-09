@@ -177,7 +177,7 @@ function updateStep(number, total = "03") {
 }
 
 function setState(state, label) {
-    $$(".mascot-stage").forEach(element => {
+    $document.querySelectorAll(".mascot-stage").forEach(element => {
         element.dataset.state = state;
     });
 
@@ -1038,7 +1038,7 @@ function closeApp() {
 
     prep = "questions";
 
-    $$(".prep-option").forEach(button => {
+    $document.querySelectorAll(".prep-option").forEach(button => {
         button.classList.toggle(
             "selected",
             button.dataset.prep === "questions"
@@ -1170,9 +1170,9 @@ function showComplete() {
 // VISA CATEGORY SELECTION
 // ==================================================
 
-$$(".visa-option").forEach(button => {
+$document.querySelectorAll(".visa-option").forEach(button => {
     button.addEventListener("click", () => {
-        $$(".visa-option").forEach(option => {
+        $document.querySelectorAll(".visa-option").forEach(option => {
             option.classList.remove("selected");
         });
 
@@ -1187,9 +1187,9 @@ $$(".visa-option").forEach(button => {
 // LANGUAGE SELECTION
 // ==================================================
 
-$(".language-option").forEach(button => {
+document.querySelectorAll(".language-option").forEach(button => {
     button.addEventListener("click", () => {
-        $$(".language-option").forEach(option => {
+        $document.querySelectorAll(".language-option").forEach(option => {
             option.classList.remove("selected");
         });
 
@@ -1204,9 +1204,9 @@ $(".language-option").forEach(button => {
 // PREPARATION METHOD SELECTION
 // ==================================================
 
-$$(".prep-option").forEach(button => {
+$document.querySelectorAll(".prep-option").forEach(button => {
     button.addEventListener("click", () => {
-        $$(".prep-option").forEach(option => {
+        $document.querySelectorAll(".prep-option").forEach(option => {
             option.classList.remove("selected");
         });
 
@@ -1393,7 +1393,7 @@ function showProfileReview(profileData) {
             switchButton.textContent = "Switch to " + detectedVisa;
             switchButton.addEventListener("click", () => {
                 visa = detectedVisa;
-                $(".visa-option").forEach(option => option.classList.toggle("selected", option.dataset.visa === visa));
+                document.querySelectorAll(".visa-option").forEach(option => option.classList.toggle("selected", option.dataset.visa === visa));
                 profileReview.classList.add("hidden");
                 setup?.classList.remove("hidden");
                 $("#continueButton")?.click();
@@ -1724,7 +1724,7 @@ addClick("#practiceAgain", () => {
     const uploadSub = $("#uploadSub");
     if (uploadTitle) uploadTitle.textContent = "Choose a PDF file";
     if (uploadSub) uploadSub.textContent = "DS-160 or I-20 PDF · Up to 10 MB";
-    $(".prep-option").forEach(option => {
+    document.querySelectorAll(".prep-option").forEach(option => {
         option.classList.toggle("selected", option.dataset.prep === "questions");
     });
 
@@ -1754,7 +1754,7 @@ addClick("#practiceAgain", () => {
 addClick("#returnHome", closeApp);
 addClick("#backHome", closeApp);
 
-$$("[data-home]").forEach(button => {
+$document.querySelectorAll("[data-home]").forEach(button => {
     button.addEventListener("click", event => {
         event.preventDefault();
         closeApp();
@@ -1765,7 +1765,7 @@ $$("[data-home]").forEach(button => {
 // START BUTTONS
 // ==================================================
 
-$$("[data-start]").forEach(button => {
+$document.querySelectorAll("[data-start]").forEach(button => {
     button.addEventListener("click", openApp);
 });
 
