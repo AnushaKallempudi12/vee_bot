@@ -1363,7 +1363,7 @@ function showInterview() {
     const progressText = $("#progressText");
     if (progressText) progressText.textContent = "Your interview has started";
 
-    startGeminiConversation();
+    return startGeminiConversation();
 }
 
 function showComplete() {
@@ -1654,7 +1654,7 @@ async function startInterview(profile = {}) {
     extractedProfile = { ...profile };
     interviewDurationMinutes = Number(result.session_duration_minutes) || 15;
 
-    showInterview();
+    await showInterview();
 
     notify("Riya is starting your interview.");
 }
