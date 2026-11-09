@@ -387,3 +387,117 @@
  .control-with-caption .secondary-control{width:100%;max-width:52px}
 }
 @media(prefers-reduced-motion:reduce){.riya-presence,.presence-spark,.hero .visa-floater{animation:none!important}}
+
+
+/* Riya homepage refresh: compact interactive bust, quiet motion, and a mid-page ticker */
+.hero{position:relative;isolation:isolate;overflow:hidden}
+.hero-starfield,.hero .sparkle,.hero .orbit{display:none!important}
+.hero-copy,.hero-visual{position:relative;z-index:2}
+.hero .visa-floaters{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden}
+.hero .visa-floater{
+  position:absolute;width:36px;height:36px;display:grid;place-items:center;
+  border:1px solid rgba(196,174,235,.15);border-radius:12px;
+  background:rgba(45,35,65,.34);box-shadow:0 7px 20px rgba(5,2,15,.10);
+  font-size:18px;opacity:.26;filter:saturate(.65);backdrop-filter:blur(4px)
+}
+.hero .floater-passport{left:18%;top:17%;animation:riya-drift-one 8s ease-in-out infinite}
+.hero .floater-plane{left:43%;top:8%;animation:riya-drift-two 9s ease-in-out -2s infinite}
+.hero .floater-globe{left:75%;top:13%;animation:riya-drift-three 8.5s ease-in-out -1s infinite}
+.hero .floater-document{left:87%;top:36%;animation:riya-drift-one 9s ease-in-out -3s infinite}
+.hero .floater-calendar{left:31%;top:39%;animation:riya-drift-two 8s ease-in-out -1s infinite}
+.hero .floater-chat{left:61%;top:48%;animation:riya-drift-three 9.5s ease-in-out -2s infinite}
+.hero .floater-check{left:12%;top:70%;animation:riya-drift-one 8.5s ease-in-out -2s infinite}
+.hero .floater-luggage{left:81%;top:75%;animation:riya-drift-two 9s ease-in-out -4s infinite}
+.hero .floater-pin{left:50%;top:84%;animation:riya-drift-three 8s ease-in-out -3s infinite}
+.hero .floater-study{left:7%;top:43%;animation:riya-drift-two 9.5s ease-in-out -2s infinite}
+.hero .floater-briefcase{left:94%;top:59%;animation:riya-drift-one 8s ease-in-out -1s infinite}
+@keyframes riya-drift-one{0%,100%{transform:translate(0,0) rotate(-5deg)}50%{transform:translate(11px,-17px) rotate(4deg)}}
+@keyframes riya-drift-two{0%,100%{transform:translate(0,0) rotate(4deg)}50%{transform:translate(-12px,15px) rotate(-5deg)}}
+@keyframes riya-drift-three{0%,100%{transform:translate(0,0)}50%{transform:translate(8px,-13px)}}
+
+.riya-presence{
+  position:relative;display:block;width:340px;height:360px;margin:0 auto;padding:0;
+  border:0;background:transparent;cursor:pointer;isolation:isolate;
+  animation:riya-bust-float 5.5s ease-in-out infinite;
+}
+.riya-presence:focus-visible{outline:2px solid #c9adff;outline-offset:8px;border-radius:45%}
+.riya-aura{position:absolute;left:50%;top:13%;width:260px;height:260px;transform:translateX(-50%);
+  background:radial-gradient(ellipse,rgba(153,112,220,.24),rgba(99,73,145,.08) 48%,transparent 72%);filter:blur(15px)}
+.riya-hair{position:absolute;z-index:2;left:50%;top:9%;width:190px;height:196px;transform:translateX(-50%);
+  border-radius:48% 48% 42% 42%;background:linear-gradient(125deg,#241735 4%,#4b2d67 42%,#21162f 83%);
+  box-shadow:inset 13px 2px 18px rgba(210,174,255,.14),0 12px 30px rgba(5,2,15,.24)}
+.riya-hair:before{content:"";position:absolute;right:4px;top:-17px;width:68px;height:65px;border-radius:50%;
+  background:linear-gradient(135deg,#4e3470,#21152e);box-shadow:inset 5px 4px 10px rgba(214,186,255,.16)}
+.riya-hair:after{content:"";position:absolute;left:-13px;top:62px;width:40px;height:120px;
+  border-radius:70% 20% 45% 55%;background:linear-gradient(90deg,#21152e,#4a2c62)}
+.riya-head{position:absolute;z-index:3;left:50%;top:18%;width:145px;height:157px;transform:translateX(-50%);
+  border-radius:47% 47% 45% 45%;background:linear-gradient(145deg,#ffe2d5,#eab8a9 80%);
+  box-shadow:inset 9px 4px 15px rgba(255,255,255,.45),0 8px 22px rgba(12,5,24,.14)}
+.riya-head:before{content:"";position:absolute;left:-13px;top:56px;width:23px;height:40px;border-radius:50%;
+  background:#e8b4a5;box-shadow:148px 0 0 #e8b4a5}
+.riya-face{position:absolute;inset:0}
+.riya-eye{position:absolute;top:67px;width:9px;height:13px;border-radius:50%;background:#30213a;
+  box-shadow:0 0 0 3px rgba(255,255,255,.18);animation:riya-blink 5.6s infinite}
+.eye-left{left:39px}.eye-right{right:39px}
+.riya-blush{position:absolute;top:94px;width:19px;height:8px;border-radius:50%;background:rgba(217,115,125,.22);filter:blur(3px)}
+.blush-left{left:19px}.blush-right{right:19px}
+.riya-smile{position:absolute;left:50%;top:105px;width:20px;height:10px;transform:translateX(-50%);
+  border-bottom:2px solid #9c5364;border-radius:0 0 50% 50%}
+.riya-neck{position:absolute;z-index:2;left:50%;top:58%;width:43px;height:42px;transform:translateX(-50%);
+  background:linear-gradient(90deg,#d99f94,#f3c9bb,#d99f94)}
+.riya-shoulders{position:absolute;z-index:3;left:50%;bottom:2%;width:240px;height:128px;transform:translateX(-50%);
+  border-radius:48% 48% 18% 18%;background:linear-gradient(120deg,#f8f7ff 4%,#c9c0e9 45%,#8d79bd 100%);
+  box-shadow:inset 0 12px 24px rgba(255,255,255,.68),0 18px 35px rgba(7,3,20,.22);overflow:hidden}
+.riya-shoulders:before{content:"";position:absolute;left:50%;top:-19px;width:100px;height:72px;transform:translateX(-50%);
+  border-radius:0 0 48% 48%;background:linear-gradient(90deg,#33234d,#7963a5,#33234d)}
+.suit-collar{position:absolute;top:0;width:48px;height:66px;background:linear-gradient(135deg,#fff,#c6b9e8)}
+.collar-left{left:69px;clip-path:polygon(0 0,100% 0,62% 100%)}
+.collar-right{right:69px;clip-path:polygon(0 0,100% 0,38% 100%)}
+.suit-core{position:absolute;left:50%;top:65px;width:17px;height:17px;transform:translateX(-50%);
+  border-radius:50%;background:#a58bd8;box-shadow:0 0 14px rgba(182,153,255,.65)}
+.riya-nameplate{position:absolute;z-index:4;bottom:15px;left:50%;transform:translateX(-50%);
+  color:#4b3a68;font:800 9px/1 var(--display);letter-spacing:2px;text-align:center}
+.riya-nameplate small{display:block;margin-top:5px;font:600 7px/1 var(--body);letter-spacing:1.4px;color:#71618c}
+.riya-speech{position:absolute;right:-4%;top:37%;z-index:5;max-width:210px;padding:13px 16px;
+  border:1px solid rgba(197,174,237,.22);border-radius:15px;background:rgba(35,26,52,.86);
+  box-shadow:0 12px 32px rgba(5,2,15,.2);backdrop-filter:blur(12px);color:#f4efff}
+.riya-speech:before{content:"";position:absolute;left:-7px;top:23px;width:12px;height:12px;transform:rotate(45deg);
+  background:#231a34;border-left:1px solid rgba(197,174,237,.22);border-bottom:1px solid rgba(197,174,237,.22)}
+.riya-speech strong,.riya-speech span{display:block}
+.riya-speech strong{font:700 13px var(--display);margin-bottom:5px}
+.riya-speech span{font:400 11px/1.5 var(--body);color:#c8bdd9}
+.riya-presence[data-state="wave"] .riya-head{animation:riya-greet .65s ease-in-out 2}
+.riya-presence[data-state="wave"] .riya-smile{width:25px;height:13px}
+.riya-presence[data-state="wave"] .riya-shoulders{filter:brightness(1.06)}
+@keyframes riya-bust-float{0%,100%{translate:0 0}50%{translate:0 -9px}}
+@keyframes riya-greet{0%,100%{rotate:0}30%{rotate:-4deg}70%{rotate:4deg}}
+@keyframes riya-blink{0%,44%,48%,100%{transform:scaleY(1)}46%,47%{transform:scaleY(.12)}}
+
+.visa-motion-strip{
+  position:relative;z-index:4;overflow:hidden;margin:0 0 42px;padding:13px 0;
+  border-top:1px solid rgba(198,168,255,.13);border-bottom:1px solid rgba(198,168,255,.13);
+  background:rgba(30,22,45,.42);box-shadow:none
+}
+.visa-motion-track{animation-duration:25s}
+.visa-motion-group{gap:30px}
+.visa-motion-group>i{color:rgba(181,151,225,.55)}
+.visa-motion-group span{color:#bdb0d0}
+.visa-motion-group span b{filter:none}
+@media(max-width:900px){
+  .hero .visa-floater{width:32px;height:32px;font-size:16px;opacity:.2}
+  .riya-presence{transform:scale(.9);transform-origin:center}
+  .riya-speech{right:-2%;top:42%;max-width:180px}
+}
+@media(max-width:650px){
+  .hero .visa-floater{width:29px;height:29px;font-size:14px;opacity:.16}
+  .hero .floater-document,.hero .floater-study,.hero .floater-briefcase{display:none}
+  .riya-presence{width:100%;height:320px;transform:scale(.82);transform-origin:top center;margin-bottom:-42px}
+  .riya-speech{right:0;top:34%;max-width:155px;padding:10px 11px}
+  .riya-speech span{font-size:10px}
+  .visa-motion-strip{margin-bottom:30px;padding:11px 0}
+  .visa-motion-track{animation-duration:30s}
+}
+@media(prefers-reduced-motion:reduce){
+  .riya-presence,.riya-eye,.riya-head,.hero .visa-floater{animation:none!important}
+  .visa-motion-track{animation:none!important}
+}
