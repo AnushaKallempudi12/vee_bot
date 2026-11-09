@@ -510,6 +510,7 @@ def health_check():
         "gemini_configured": bool(GEMINI_API_KEY),
         "text_model": GEMINI_TEXT_MODEL,
         "fallback_model": GEMINI_FALLBACK_MODEL,
+        "model_timeout_seconds": GEMINI_MODEL_TIMEOUT_SECONDS,
         "voice_mode": "browser_speech_recognition_and_synthesis",
         "session_duration_minutes": SESSION_DURATION_MINUTES
     }
