@@ -337,3 +337,53 @@
 @media(max-width:900px){.holo-stage{transform:scale(.88)}}
 @media(max-width:650px){.holo-stage{height:390px;transform:scale(.82);transform-origin:top center;margin-bottom:-35px}}
 @media(prefers-reduced-motion:reduce){.holo-stage *{animation:none!important}}
+
+
+/* Homepage polish: bottom ticker, naturally scattered floaters, no central orb */
+.visa-motion-strip{margin:0;padding:15px 0 16px;border-top:1px solid rgba(198,168,255,.16);border-bottom:0}
+.hero{position:relative;isolation:isolate;overflow:hidden}
+.hero-copy,.hero-visual{position:relative;z-index:2}
+.hero .visa-floaters{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;contain:layout paint}
+.hero .visa-floater{position:absolute;width:38px;height:38px;display:grid;place-items:center;border:1px solid rgba(205,180,255,.18);border-radius:13px;background:linear-gradient(145deg,rgba(68,48,99,.42),rgba(30,22,48,.28));box-shadow:0 8px 24px rgba(5,2,15,.12);font-size:19px;opacity:.32;filter:saturate(.72);backdrop-filter:blur(5px)}
+.hero .floater-passport{left:19%;top:16%;animation:visa-drift-a 6s ease-in-out infinite}
+.hero .floater-plane{left:47%;top:9%;animation:visa-drift-b 7.2s ease-in-out infinite}
+.hero .floater-globe{left:72%;top:15%;animation:visa-drift-c 6.7s ease-in-out infinite}
+.hero .floater-document{left:88%;top:34%;animation:visa-drift-a 7s ease-in-out -1s infinite}
+.hero .floater-calendar{left:34%;top:36%;animation:visa-drift-b 6.4s ease-in-out -2s infinite}
+.hero .floater-chat{left:61%;top:47%;animation:visa-drift-c 7.4s ease-in-out -1.5s infinite}
+.hero .floater-check{left:14%;top:69%;animation:visa-drift-a 6.6s ease-in-out -2.5s infinite}
+.hero .floater-luggage{left:80%;top:73%;animation:visa-drift-b 7.1s ease-in-out -1.8s infinite}
+.hero .floater-pin{left:49%;top:83%;animation:visa-drift-c 6.8s ease-in-out -3s infinite}
+.hero .floater-study{left:7%;top:43%;animation:visa-drift-b 7s ease-in-out -2s infinite}
+.hero .floater-briefcase{left:93%;top:58%;animation:visa-drift-a 6.3s ease-in-out -1.2s infinite}
+.riya-presence{position:relative;width:340px;height:390px;margin:0 auto;display:grid;place-items:center;isolation:isolate;animation:presence-float 5.8s ease-in-out infinite}
+.presence-glow{position:absolute;width:210px;height:210px;background:radial-gradient(ellipse,rgba(172,126,255,.24),rgba(104,72,174,.08) 42%,transparent 72%);filter:blur(18px)}
+.presence-spark{position:absolute;display:block;color:#e9dcff;text-shadow:0 0 12px rgba(218,195,255,.9),0 0 38px rgba(157,112,255,.7);line-height:1}
+.presence-spark-main{font-size:112px;background:linear-gradient(145deg,#fff 5%,#dfcaff 38%,#9b75ef 78%);background-clip:text;-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 24px rgba(176,136,255,.7));animation:spark-breathe 3.8s ease-in-out infinite}
+.presence-spark-small{font-size:42px;top:21%;right:19%;animation:spark-drift 5.2s ease-in-out infinite}
+.presence-spark-tiny{font-size:23px;left:22%;bottom:28%;animation:spark-drift 4.6s ease-in-out -1.7s infinite}
+.presence-trail{position:absolute;width:190px;height:1px;background:linear-gradient(90deg,transparent,rgba(209,183,255,.65),transparent);filter:drop-shadow(0 0 5px #a77af4)}
+.trail-one{transform:rotate(-32deg) translateY(45px)}
+.trail-two{transform:rotate(32deg) translateY(-45px);opacity:.55}
+.presence-orbit-dot{position:absolute;width:7px;height:7px;border-radius:50%;background:#e4d4ff;box-shadow:0 0 12px 3px rgba(180,143,255,.75)}
+.dot-one{top:25%;left:24%}.dot-two{right:23%;bottom:29%;width:5px;height:5px}.dot-three{right:30%;top:18%;width:4px;height:4px}
+.presence-name{position:absolute;bottom:15px;color:#e8ddfa;font:800 10px/1 var(--display);letter-spacing:4px;text-align:center}
+.presence-name i{display:block;margin-top:8px;color:#a99abb;font:600 8px/1 var(--body);letter-spacing:2px;font-style:normal}
+@keyframes presence-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
+@keyframes spark-breathe{0%,100%{transform:scale(.96) rotate(-4deg);opacity:.88}50%{transform:scale(1.06) rotate(4deg);opacity:1}}
+@keyframes spark-drift{0%,100%{transform:translate3d(0,0,0) rotate(0)}50%{transform:translate3d(8px,-12px,0) rotate(18deg)}}
+.control-with-caption{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;min-width:44px}
+.control-with-caption small{font-size:8px;line-height:1.1;color:#a99bbd;white-space:nowrap;letter-spacing:.1px}
+.control-with-caption .secondary-control{height:44px;flex:0 0 44px}
+@media(max-width:900px){.hero .visa-floater{width:34px;height:34px;font-size:17px;opacity:.25}.riya-presence{transform:scale(.92);transform-origin:center}}
+@media(max-width:650px){
+ .visa-motion-strip{margin:0;padding:12px 0}
+ .hero .visa-floater{width:30px;height:30px;font-size:15px;opacity:.2}
+ .hero .floater-document,.hero .floater-study{display:none}
+ .riya-presence{width:100%;height:330px;transform:scale(.84);transform-origin:top center;margin-bottom:-38px}
+ .answer-controls{gap:7px;flex-wrap:wrap}
+ .answer-controls .mic-button{min-width:100%;order:0}
+ .control-with-caption{min-width:calc(25% - 6px);flex:1}
+ .control-with-caption .secondary-control{width:100%;max-width:52px}
+}
+@media(prefers-reduced-motion:reduce){.riya-presence,.presence-spark,.hero .visa-floater{animation:none!important}}
