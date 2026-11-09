@@ -1195,6 +1195,8 @@ $(".language-option").forEach(button => {
 
         button.classList.add("selected");
         language = button.dataset.language;
+        const languageLabel = $("#headerLanguageLabel");
+        if (languageLabel) languageLabel.textContent = language;
     });
 });
 
