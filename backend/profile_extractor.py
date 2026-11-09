@@ -199,6 +199,11 @@ def extract_profile(text: str) -> dict:
             if not value:
                 value = _next_value(lines, index)
             if value:
+                # DS-160 U.S. stay addresses often continue on the next PDF text line.
+                if field_name == "us_stay_address":
+                    continuation = _next_value(lines, index)
+                    if continuation:
+                        value = clean_candidate(value + " " + continuation) or value
                 profile[field_name] = value
     if "applicant_name" not in profile and (name_parts.get("given") or name_parts.get("surname")):
         profile["applicant_name"] = " ".join(
