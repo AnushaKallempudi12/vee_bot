@@ -20,7 +20,8 @@ from profile_extractor import extract_profile
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "gemini-3.8-flash")
+GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "gemini-3.8-flash").strip()
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite").strip()
 
 app = FastAPI(
     title="Riya AI API",
@@ -350,32 +351,59 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
     else:
         output_contract = "Return one JSON object matching the requested response fields."
 
-    instructions = instructions + "\n\n" + output_contract
-    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_TEXT_MODEL}:generateContent"
-    payload = {
-        "systemInstruction": {"parts": [{"text": instructions}]},
-        "contents": contents,
-        "generationConfig": {
-            "responseMimeType": "application/json",
-            "maxOutputTokens": 1200,
-            "temperature": 0.7
-        }
-    }
+    full_instruction = instructions + "\\n\\n" + output_contract
+    models_to_try = [GEMINI_TEXT_MODEL]
+    if GEMINI_FALLBACK_MODEL and GEMINI_FALLBACK_MODEL not in models_to_try:
+        models_to_try.append(GEMINI_FALLBACK_MODEL)
 
     try:
         async with httpx.AsyncClient(timeout=45) as client:
-            response = await asyncio.wait_for(
-                client.post(endpoint, headers={"x-goog-api-key": GEMINI_API_KEY}, json=payload),
-                timeout=45
-            )
+            response = None
+            for index, model_name in enumerate(models_to_try):
+                endpoint = (
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{model_name}:generateContent"
+                )
+                response = await asyncio.wait_for(
+                    client.post(
+                        endpoint,
+                        headers={"x-goog-api-key": GEMINI_API_KEY},
+                        json={
+                            "systemInstruction": {"parts": [{"text": full_instruction}]},
+                            "contents": contents,
+                            "generationConfig": {
+                                "responseMimeType": "application/json",
+                                "maxOutputTokens": 1200,
+                                "temperature": 0.7
+                            }
+                        }
+                    ),
+                    timeout=45
+                )
 
-        if not response.is_success:
-            print(f"GEMINI TEXT ERROR: status={response.status_code}, body={response.text[:1500]}", flush=True)
-            if response.status_code == 429:
-                raise HTTPException(status_code=429, detail="Riya has reached the Gemini free-tier usage limit. Please wait and try again later.")
-            if response.status_code in (401, 403):
-                raise HTTPException(status_code=503, detail="Gemini rejected the API key or model access. Check GEMINI_API_KEY and the selected model in Railway.")
-            raise HTTPException(status_code=502, detail="Gemini could not complete the request. Please try again.")
+                if response.is_success:
+                    break
+
+                # Try the configured fallback for model-specific quota or availability errors.
+                if response.status_code in (404, 429, 503) and index < len(models_to_try) - 1:
+                    print(
+                        f"Gemini model {model_name} unavailable (HTTP {response.status_code}); trying fallback model.",
+                        flush=True
+                    )
+                    continue
+
+                print(
+                    f"GEMINI TEXT ERROR: model={model_name}, status={response.status_code}, body={response.text[:1500]}",
+                    flush=True
+                )
+                if response.status_code == 429:
+                    raise HTTPException(status_code=429, detail="Riya has reached the Gemini free-tier usage limit for the available models. Please wait and try again later.")
+                if response.status_code in (401, 403):
+                    raise HTTPException(status_code=503, detail="Gemini rejected the API key or model access. Check GEMINI_API_KEY and the selected models in Railway.")
+                raise HTTPException(status_code=502, detail="Gemini could not complete the request. Please try again.")
+
+        if response is None or not response.is_success:
+            raise HTTPException(status_code=502, detail="No configured Gemini model could complete the request.")
 
         result = response.json()
         parts = result.get("candidates", [{}])[0].get("content", {}).get("parts", [])
@@ -392,7 +420,6 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
     except Exception as error:
         print("GEMINI TEXT ERROR:", repr(error), flush=True)
         raise HTTPException(status_code=502, detail="The AI service could not complete the request. Please try again.")
-
 
 def build_conversation_input(history: list[dict], current_message: str):
     input_items = []
@@ -457,6 +484,7 @@ def health_check():
         "service": "Riya AI API",
         "gemini_configured": bool(GEMINI_API_KEY),
         "text_model": GEMINI_TEXT_MODEL,
+        "fallback_model": GEMINI_FALLBACK_MODEL,
         "voice_mode": "browser_speech_recognition_and_synthesis",
         "session_duration_minutes": SESSION_DURATION_MINUTES
     }
