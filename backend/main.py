@@ -285,7 +285,10 @@ PERSONALITY:
 - Warm, natural, calm, and professional.
 - Speak like a real interviewer having a conversation.
 - Use clear, simple English.
-- Ask only ONE question at a time.
+- Ask exactly ONE short, direct question per turn.
+- Keep the spoken response to 1–2 short sentences and no more than 25 words whenever possible.
+- Never combine two questions or ask a multi-part question.
+- Do not give a long explanation, list, preamble, or multiple follow-ups.
 - Do not sound robotic or repeat scripted introductions.
 
 INTERVIEW RULES:
@@ -317,7 +320,8 @@ Use profile details only as background context.
 If a detail is missing, ask the applicant naturally.
 Never assume that a missing detail is true.
 
-Return a concise response with one question at a time.
+Return only a brief natural interviewer line ending in exactly ONE clear question.
+Keep it under 25 words and ask about one topic only. Do not combine questions.
 The interview_complete field must remain false during the conversation.
 """
 
@@ -354,6 +358,8 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
         output_contract = "Return one JSON object matching the requested response fields."
 
     full_instruction = instructions + "\n\n" + output_contract
+    is_interview_turn = response_model.__name__ == "InterviewAIResponse"
+    max_output_tokens = 220 if is_interview_turn else 900
     models_to_try = [GEMINI_TEXT_MODEL]
     if GEMINI_FALLBACK_MODEL and GEMINI_FALLBACK_MODEL not in models_to_try:
         models_to_try.append(GEMINI_FALLBACK_MODEL)
@@ -379,8 +385,8 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
                                 "contents": contents,
                                 "generationConfig": {
                                     "responseMimeType": "application/json",
-                                    "maxOutputTokens": 1200,
-                                    "temperature": 0.7
+                                    "maxOutputTokens": max_output_tokens,
+                                    "temperature": 0.35 if is_interview_turn else 0.55
                                 }
                             }
                         ),
@@ -447,14 +453,11 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
         raise HTTPException(status_code=502, detail="The AI service could not complete the request. Please try again.")
 
 def build_conversation_input(history: list[dict], current_message: str):
-    input_items = []
-    applicant_has_spoken = False
-    for turn in history[-200:]:
-        if turn["role"] == "assistant" and not applicant_has_spoken:
-            continue
-        if turn["role"] == "user":
-            applicant_has_spoken = True
-        input_items.append({"role": turn["role"], "content": turn["content"]})
+    # Keep the recent assistant question as context for the applicant's answer.
+    input_items = [
+        {"role": turn["role"], "content": turn["content"]}
+        for turn in history[-20:]
+    ]
     if current_message:
         input_items.append({"role": "user", "content": current_message})
     return input_items
