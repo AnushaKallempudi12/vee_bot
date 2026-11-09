@@ -65,7 +65,7 @@ VISA_TYPES = Literal["F1", "F2", "B1/B2", "H1B", "H4"]
 
 class InterviewSetup(BaseModel):
     visa_type: VISA_TYPES
-    language: Literal["English"]
+    language: Literal["English", "Telugu"] = "English"
     prep_mode: Literal["questions", "document"]
     document_selected: bool = False
 
@@ -77,6 +77,7 @@ class ConversationTurn(BaseModel):
 
 class InterviewChatRequest(BaseModel):
     visa_type: VISA_TYPES
+    language: Literal["English", "Telugu"] = "English"
     user_message: str = Field(default="", max_length=4000)
     history: list[ConversationTurn] = Field(
     default_factory=list,
@@ -95,6 +96,7 @@ class InterviewAIResponse(BaseModel):
 
 class FeedbackRequest(BaseModel):
     visa_type: VISA_TYPES
+    language: Literal["English", "Telugu"] = "English"
     history: list[ConversationTurn] = Field(
         min_length=1,
         max_length=200
@@ -108,6 +110,7 @@ class InterviewFeedback(BaseModel):
     improvement_areas: list[str]
     practice_tips: list[str]
     consistency_notes: list[str]
+    document_comparison: list[dict]
     disclaimer: str
 
 
@@ -287,13 +290,17 @@ Address the applicant as the H4 dependent, not as the H1B worker. Ask follow-up 
 }
 
 
-def build_system_instruction(visa_type: str, profile: dict) -> str:
+def build_system_instruction(visa_type: str, profile: dict, language: str = "English") -> str:
     visa_context = VISA_INSTRUCTIONS[visa_type]
 
     profile_context = json.dumps(profile, ensure_ascii=False)
+    language_instruction = ("Conduct the entire interview in natural Telugu (తెలుగు). Ask questions in Telugu and understand Telugu answers." if language == "Telugu" else "Conduct the entire interview in natural English.")
 
     return f"""
 You are Riya, a friendly, professional U.S. visa mock-interview assistant.
+
+LANGUAGE:
+- {language_instruction}
 
 PERSONALITY:
 - Warm, natural, calm, and professional.
@@ -376,7 +383,7 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
             'Return exactly one JSON object with these fields: '
             '{"overall_summary":"string","strengths":["string"],'
             '"improvement_areas":["string"],"practice_tips":["string"],'
-            '"consistency_notes":["string"],"disclaimer":"string"}. '
+            '"consistency_notes":["string"],"document_comparison":[{"field":"string","document_value":"string","spoken_answer":"string","status":"match|conflict|missing|unclear","explanation":"string"}],"disclaimer":"string"}. '
             "Do not wrap the JSON in Markdown."
         )
     else:
@@ -634,7 +641,8 @@ async def interview_chat(request: InterviewChatRequest):
     input_items = build_conversation_input(safe_history, current_message)
     system_instruction = build_system_instruction(
         request.visa_type,
-        safe_profile
+        safe_profile,
+        request.language
     )
 
     ai_result = await generate_gemini_response(
@@ -682,7 +690,9 @@ async def interview_feedback(request: FeedbackRequest):
 
     feedback_instruction = f"""
 You are Riya, evaluating a completed {request.visa_type} visa
-mock interview.
+mock interview. The interview language is {request.language}.
+
+Do not announce document matches during the interview. Compare answers only in this final report. For every reviewed profile field meaningfully covered by a question, return one document_comparison entry with field, document_value, spoken_answer, status and explanation. status must be match, conflict, missing, or unclear. Match means substantively consistent; conflict means a material factual difference; missing means the document field exists but the answer was not given; unclear means ambiguous. Do not compare absent fields, invent facts, or reproduce passport/ID numbers, DOB, phone or email. This is a practice consistency check, not a legal determination. If language is Telugu, write all user-facing feedback in natural Telugu; otherwise use English.
 
 Review the applicant's answers and provide constructive practice feedback.
 
@@ -710,7 +720,7 @@ Keep feedback practical, respectful, and specific.
 """
 
     feedback = await generate_gemini_response(
-        [{"role": "user", "content": "Evaluate this completed mock interview."}],
+        [{"role": "user", "content": "Evaluate this completed mock interview in " + request.language + " and compare answers with the reviewed document."}],
         feedback_instruction,
         InterviewFeedback
     )

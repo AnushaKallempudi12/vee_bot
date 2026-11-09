@@ -299,17 +299,17 @@ function setupVoiceSelector() {
     const select = $("#riyaVoiceSelect");
     if (!select) return;
 
-    const voices = getAvailableVoices().filter(voice =>
-        voice.lang.toLowerCase().startsWith("en")
-    );
+    const prefix = language === "Telugu" ? "te" : "en";
+    const voices = getAvailableVoices().filter(voice => voice.lang.toLowerCase().startsWith(prefix));
 
     const previousValue = selectedVoiceURI || select.value;
 
     select.replaceChildren();
 
     if (!voices.length) {
+        selectedVoiceURI = "";
         const option = document.createElement("option");
-        option.textContent = "Default English voice";
+        option.textContent = language === "Telugu" ? "Default Telugu voice (if available)" : "Default English voice";
         option.value = "";
         select.appendChild(option);
         return;
@@ -367,7 +367,7 @@ function speakRiya(text, listenAfterSpeaking = true) {
         utterance.voice = selectedVoice;
         utterance.lang = selectedVoice.lang;
     } else {
-        utterance.lang = "en-US";
+        utterance.lang = language === "Telugu" ? "te-IN" : "en-US";
     }
 
     utterance.rate = 0.95;
@@ -461,7 +461,7 @@ function startListening() {
 
     recognition = instance;
 
-    instance.lang = "en-US";
+    instance.lang = language === "Telugu" ? "te-IN" : "en-US";
     instance.continuous = true;
     instance.interimResults = true;
     instance.maxAlternatives = 1;
@@ -647,7 +647,7 @@ async function startTextInterview() {
     const endButton = $("#endButton");
     try {
         const result = await backendRequest("/api/interview/chat", {
-            visa_type: visa, user_message: "", history: [], profile: extractedProfile,
+            visa_type: visa, language, user_message: "", history: [], profile: extractedProfile,
             start_interview: true, end_interview: false
         });
         if (!interviewActive || endingInterview) { requestInProgress = false; return; }
@@ -730,6 +730,7 @@ async function sendAnswerToRiya(answer) {
             "/api/interview/chat",
             {
                 visa_type: visa,
+                language,
                 user_message: answer,
                 history: interviewHistory,
                 profile: extractedProfile,
@@ -867,6 +868,7 @@ async function finishInterview(sendEndRequest = true) {
             "/api/interview/feedback",
             {
                 visa_type: visa,
+                language,
                 history: interviewHistory,
                 profile: extractedProfile
             }
@@ -899,6 +901,7 @@ async function finishInterview(sendEndRequest = true) {
                 "Try the interview again."
             ],
             consistency_notes: [],
+            document_comparison: [],
             disclaimer:
                 "This is a practice tool, not an official visa decision."
         });
@@ -962,11 +965,13 @@ function renderFeedback(feedback) {
         container.appendChild(section);
     }
 
-    addSection("Overall summary", feedback.overall_summary);
-    addSection("Your strengths", feedback.strengths);
-    addSection("Areas to improve", feedback.improvement_areas);
-    addSection("Practice tips", feedback.practice_tips);
-    addSection("Consistency notes", feedback.consistency_notes);
+    addSection(language === "Telugu" ? "మొత్తం సమీక్ష" : "Overall summary", feedback.overall_summary);
+    addSection(language === "Telugu" ? "మీ బలాలు" : "Your strengths", feedback.strengths);
+    addSection(language === "Telugu" ? "మెరుగుపరచాల్సిన అంశాలు" : "Areas to improve", feedback.improvement_areas);
+    addSection(language === "Telugu" ? "ప్రాక్టీస్ సూచనలు" : "Practice tips", feedback.practice_tips);
+    addSection(language === "Telugu" ? "సమాధానాల స్థిరత్వం" : "Consistency notes", feedback.consistency_notes);
+    const comparisonLines = (feedback.document_comparison || []).map(item => String(item.status || "unclear").toUpperCase() + " · " + (item.field || "Document detail") + " — Document: " + (item.document_value || "Not available") + "; Your answer: " + (item.spoken_answer || "Not answered") + "; " + (item.explanation || ""));
+    addSection(language === "Telugu" ? "DS-160తో సమాధానాల పోలిక" : "DS-160 answer comparison", comparisonLines);
     addSection("Important note", feedback.disclaimer);
 }
 
@@ -1182,7 +1187,7 @@ $$(".visa-option").forEach(button => {
 // LANGUAGE SELECTION
 // ==================================================
 
-$$(".language-option:not(.disabled-option)").forEach(button => {
+$(".language-option").forEach(button => {
     button.addEventListener("click", () => {
         $$(".language-option").forEach(option => {
             option.classList.remove("selected");
