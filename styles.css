@@ -87,3 +87,56 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Riya interaction polish: expressive speech and clear audio controls */
+.mascot-stage .mascot { animation: mascot-presence 4.8s ease-in-out infinite; transform-origin: 50% 85%; }
+.mascot-stage[data-state="speaking"] .mascot { animation: mascot-speaking 1.25s ease-in-out infinite; }
+.mascot-stage[data-state="speaking"] .mouth {
+  height: 12px; width: 15px; top: 61px; border: 2px solid #f3d8ef;
+  border-top: 0; border-radius: 3px 3px 10px 10px;
+  animation: mouth-talking .22s ease-in-out infinite alternate;
+}
+.mascot-stage[data-state="speaking"] .head { animation: head-speaking 1.3s ease-in-out infinite; }
+.mascot-stage[data-state="speaking"] .arm-left { animation: gesture 1.5s ease-in-out infinite alternate; }
+.mascot-stage[data-state="listening"] .mascot { animation: mascot-listening 3s ease-in-out infinite; }
+.mascot-stage[data-state="thinking"] .mascot { animation: mascot-thinking 2.8s ease-in-out infinite; }
+.mascot-stage[data-state="listening"] .mouth { height: 4px; width: 9px; border-bottom-width: 2px; }
+.mascot-stage[data-state="thinking"] .mouth { width: 7px; border-radius: 50%; }
+.mascot-stage .mascot-shadow { animation: shadow-breathe 4.8s ease-in-out infinite; }
+.answer-controls .mute-control { width: 44px; min-width: 44px; font-size: 16px; line-height: 1; }
+.answer-controls .mute-control.is-muted {
+  border-color: #d98ca8; background: #48283b; color: #ffd6e4;
+  box-shadow: 0 0 0 2px #d98ca822;
+}
+.footer > span:nth-child(2) { max-width: 700px; line-height: 1.7; text-align: center; }
+@keyframes mascot-presence {
+  0%,100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-5px) rotate(1deg); }
+}
+@keyframes mascot-speaking {
+  0%,100% { transform: translateY(0) rotate(-1deg) scale(1); }
+  50% { transform: translateY(-3px) rotate(1deg) scale(1.012); }
+}
+@keyframes mascot-listening {
+  0%,100% { transform: translateY(0) rotate(0); }
+  45% { transform: translateY(-2px) rotate(1deg); }
+  65% { transform: translateY(-2px) rotate(-1deg); }
+}
+@keyframes mascot-thinking {
+  0%,100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(2px) rotate(-1deg); }
+}
+@keyframes head-speaking {
+  0%,100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-2px) rotate(2deg); }
+}
+@keyframes mouth-talking { from { transform: scaleY(.45); } to { transform: scaleY(1.15); } }
+@keyframes shadow-breathe {
+  0%,100% { transform: scaleX(1); opacity: .65; }
+  50% { transform: scaleX(.92); opacity: .48; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mascot-stage .mascot, .mascot-stage .mascot-shadow,
+  .mascot-stage[data-state="speaking"] .mouth { animation: none !important; }
+}
