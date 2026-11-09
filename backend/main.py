@@ -478,12 +478,20 @@ def health_check():
         "service": "Riya AI API",
         "gemini_configured": bool(gemini_client),
         "gemini_model": GEMINI_MODEL,
+        "live_model": LIVE_MODEL,
+        "live_api_configured": bool(gemini_client),
         "session_duration_minutes": SESSION_DURATION_MINUTES
     }
 
 
 @app.post("/api/interview/setup")
 def create_interview_setup(setup: InterviewSetup):
+    if not gemini_client:
+        raise HTTPException(
+            status_code=503,
+            detail="Riya's AI backend is not configured. Add GEMINI_API_KEY in Render environment variables."
+        )
+
     if setup.prep_mode == "document" and not setup.document_selected:
         raise HTTPException(
             status_code=400,
