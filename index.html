@@ -24,11 +24,6 @@
       <span>riya<span class="brand-ai">.ai</span></span>
     </a>
 
-    <nav class="topnav" aria-label="Main navigation">
-      <a href="#how-it-works">How it works</a>
-      <a href="#about">About Riya</a>
-    </nav>
-
     <div class="top-actions">
       <span class="language-pill">
         <span class="status-dot"></span> English
@@ -63,11 +58,8 @@
 
         <div class="hero-actions">
           <button class="button button-primary" data-start>
-            Meet Riya &amp; practice <span aria-hidden="true">→</span>
+            Start practicing <span aria-hidden="true">→</span>
           </button>
-          <a class="text-link" href="#how-it-works">
-            See how it works <span>↓</span>
-          </a>
         </div>
 
         <div class="trust-row">
@@ -140,108 +132,6 @@
       </div>
     </section>
 
-    <section class="how-section page-section" id="how-it-works">
-      <div class="section-heading">
-        <div class="eyebrow">A SIMPLE WAY TO PREPARE</div>
-        <h2>Your practice. <span>Your pace.</span></h2>
-        <p>Get familiar with the flow of an interview in three simple steps.</p>
-      </div>
-
-      <div class="steps-grid">
-        <article class="step-card">
-          <div class="step-number">01</div>
-          <div class="step-icon">⌁</div>
-          <h3>Choose your visa</h3>
-          <p>Select the visa category you want to practice for and your preferred interview language.</p>
-        </article>
-
-        <article class="step-card">
-          <div class="step-number">02</div>
-          <div class="step-icon">▤</div>
-          <h3>Bring your details</h3>
-          <p>Optionally provide relevant details from your application, or start fresh without uploading a document.</p>
-        </article>
-
-        <article class="step-card">
-          <div class="step-number">03</div>
-          <div class="step-icon">◖</div>
-          <h3>Talk with Riya</h3>
-          <p>Practice answering questions out loud and review feedback to identify areas to improve.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="about-section page-section" id="about">
-      <div class="about-visual">
-        <div class="about-glow"></div>
-
-        <div class="mini-mascot-wrap">
-          <div class="mascot-stage small" data-state="idle">
-            <div class="mascot">
-              <div class="antenna"><span></span></div>
-              <div class="ear ear-left"></div>
-              <div class="ear ear-right"></div>
-
-              <div class="head">
-                <div class="face">
-                  <span class="eye eye-left"></span>
-                  <span class="eye eye-right"></span>
-                  <span class="cheek cheek-left"></span>
-                  <span class="cheek cheek-right"></span>
-                  <span class="mouth"></span>
-                </div>
-                <span class="head-glint"></span>
-              </div>
-
-              <div class="neck"></div>
-
-              <div class="body">
-                <span class="body-core"></span>
-                <span class="body-highlight"></span>
-              </div>
-
-              <div class="arm arm-left"><span class="hand"></span></div>
-              <div class="arm arm-right"><span class="hand"></span></div>
-              <div class="leg leg-left"></div>
-              <div class="leg leg-right"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="about-copy">
-        <div class="eyebrow">A LITTLE ABOUT YOUR COMPANION</div>
-        <h2>Meet Riya.<br><span>Practice with a little more ease.</span></h2>
-        <p>
-          Riya is designed to make interview preparation feel more approachable. She asks one question at a time, listens to your response, and helps you reflect on how clearly you explained your situation.
-        </p>
-
-        <div class="about-note">
-          <span>✦</span>
-          <p>
-            Riya is an independent practice tool—not a government service, immigration attorney, or predictor of visa decisions. Interview text is sent to Google Gemini for questions and feedback. On Google's free API tier, submitted content may be used to improve Google products. Do not enter passport numbers, government identifiers, account numbers, or other highly sensitive details.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section class="cta-section page-section">
-      <div class="cta-card">
-        <div class="cta-glow"></div>
-
-        <div class="cta-content">
-          <div class="eyebrow">YOUR NEXT STEP STARTS HERE</div>
-          <h2>A little practice can<br>make a big difference.</h2>
-          <p>Whenever you're ready, Riya is ready to practice with you.</p>
-
-          <button class="button button-primary" data-start>
-            Start a practice session <span>→</span>
-          </button>
-        </div>
-
-        <div class="cta-orb">✦</div>
-      </div>
-    </section>
   </main>
 
   <footer class="footer">
@@ -250,7 +140,7 @@
       <span>riya<span class="brand-ai">.ai</span></span>
     </a>
 
-    <span>Independent interview preparation tool. Not affiliated with the U.S. government.</span>
+    <span>Riya is an independent practice tool, not a government service or immigration attorney. Interview text is processed by Google Gemini. Avoid entering passport numbers, government identifiers, account numbers, or other highly sensitive details.</span>
     <span>© 2026 Riya AI</span>
   </footer>
 
@@ -515,10 +405,14 @@
             </div>
 
             <div class="answer-controls">
-              <button class="mic-button" id="micButton" type="button" aria-label="Mute microphone">
+              <button class="mic-button" id="micButton" type="button" aria-label="Start speaking">
                 <span class="mic-symbol">●</span>
-                <span id="micLabel">Mute microphone</span>
+                <span id="micLabel">Start speaking</span>
               </button>
+
+              <button class="secondary-control mute-control" id="micMuteButton" type="button" title="Mute microphone" aria-label="Mute microphone">🎙</button>
+
+              <button class="secondary-control mute-control" id="riyaMuteButton" type="button" title="Mute Riya's voice" aria-label="Mute Riya's voice">🔊</button>
 
               <button class="secondary-control" id="repeatButton" type="button" title="Repeat question">
                 ↻
