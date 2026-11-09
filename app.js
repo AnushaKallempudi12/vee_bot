@@ -844,6 +844,10 @@ async function closeLiveVoiceSession() {
 
 async function startLiveVoiceSession() {
     requestInProgress = true;
+    const micButton = $("#micButton");
+    const endButton = $("#endButton");
+    if (micButton) micButton.disabled = true;
+    if (endButton) endButton.disabled = true;
     setState("thinking", "Connecting to Riya's live voice");
 
     try {
@@ -913,6 +917,8 @@ async function startLiveVoiceSession() {
         liveAudioProcessor.connect(liveAudioContext.destination);
 
         requestInProgress = false;
+        if (micButton) micButton.disabled = false;
+        if (endButton) endButton.disabled = false;
         setState("listening", "Riya is listening");
         const micLabel = $("#micLabel");
         if (micLabel) micLabel.textContent = "Mute microphone";
@@ -932,6 +938,8 @@ async function startLiveVoiceSession() {
         requestInProgress = false;
         console.error("Live voice startup failed:", error);
         await closeLiveVoiceSession();
+        if (micButton) micButton.disabled = false;
+        if (endButton) endButton.disabled = false;
         interviewActive = false;
         clearInterviewTimer();
         interview?.classList.add("hidden");
@@ -1112,7 +1120,10 @@ async function finishInterview(sendEndRequest = true) {
                 }
                 setTimeout(complete, 8000);
             });
-            await new Promise(resolve => setTimeout(resolve, 900));
+            const remainingAudioMs = liveAudioContext
+                ? Math.max(0, (livePlaybackCursor - liveAudioContext.currentTime) * 1000)
+                : 0;
+            await new Promise(resolve => setTimeout(resolve, Math.max(900, remainingAudioMs + 300)));
         }
 
         await closeLiveVoiceSession();
@@ -1329,6 +1340,8 @@ function showInterview() {
     interviewActive = true;
     endingInterview = false;
     requestInProgress = false;
+    const micButton = $("#micButton");
+    if (micButton) micButton.disabled = true;
     startInterviewTimer();
 
     const activeVisa = $("#activeVisa");
