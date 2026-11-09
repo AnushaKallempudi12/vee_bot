@@ -96,8 +96,8 @@ def _value_after_label(line: str, labels: set[str]):
         if normalized == label:
             return label, None
         if normalized.startswith(label + " "):
-            label_pattern = r"^\\s*" + r"[\\W_]*".join(re.escape(word) for word in label.split()) + r"[\\W_]*"
-            remainder = re.sub(label_pattern, "", line, count=1, flags=re.I).strip(" :|\\t-")
+            label_pattern = r"^\s*" + r"[\W_]*".join(re.escape(word) for word in label.split()) + r"[\W_]*"
+            remainder = re.sub(label_pattern, "", line, count=1, flags=re.I).strip(" :|\t-")
             return label, remainder or None
     return None, None
 
