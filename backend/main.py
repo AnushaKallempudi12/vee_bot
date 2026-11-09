@@ -2,6 +2,7 @@ import os
 import re
 import json
 import asyncio
+import time
 import fitz
 import httpx
 from dotenv import load_dotenv
@@ -22,6 +23,7 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "gemini-3.8-flash").strip()
 GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite").strip()
+GEMINI_MODEL_TIMEOUT_SECONDS = max(8, min(35, int(os.getenv("GEMINI_MODEL_TIMEOUT_SECONDS", "20"))))
 
 app = FastAPI(
     title="Riya AI API",
@@ -357,34 +359,57 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
         models_to_try.append(GEMINI_FALLBACK_MODEL)
 
     try:
-        async with httpx.AsyncClient(timeout=45) as client:
-            response = None
+        response = None
+        async with httpx.AsyncClient(
+            timeout=GEMINI_MODEL_TIMEOUT_SECONDS + 2
+        ) as client:
             for index, model_name in enumerate(models_to_try):
                 endpoint = (
                     "https://generativelanguage.googleapis.com/v1beta/models/"
                     f"{model_name}:generateContent"
                 )
-                response = await asyncio.wait_for(
-                    client.post(
-                        endpoint,
-                        headers={"x-goog-api-key": GEMINI_API_KEY},
-                        json={
-                            "systemInstruction": {"parts": [{"text": full_instruction}]},
-                            "contents": contents,
-                            "generationConfig": {
-                                "responseMimeType": "application/json",
-                                "maxOutputTokens": 1200,
-                                "temperature": 0.7
+                attempt_started = time.monotonic()
+                try:
+                    response = await asyncio.wait_for(
+                        client.post(
+                            endpoint,
+                            headers={"x-goog-api-key": GEMINI_API_KEY},
+                            json={
+                                "systemInstruction": {"parts": [{"text": full_instruction}]},
+                                "contents": contents,
+                                "generationConfig": {
+                                    "responseMimeType": "application/json",
+                                    "maxOutputTokens": 1200,
+                                    "temperature": 0.7
+                                }
                             }
-                        }
-                    ),
-                    timeout=45
+                        ),
+                        timeout=GEMINI_MODEL_TIMEOUT_SECONDS
+                    )
+                except (asyncio.TimeoutError, httpx.TimeoutException):
+                    elapsed = round(time.monotonic() - attempt_started, 2)
+                    print(
+                        f"Gemini model timeout: model={model_name}, elapsed_seconds={elapsed}",
+                        flush=True
+                    )
+                    if index < len(models_to_try) - 1:
+                        print("Trying configured Gemini fallback after timeout.", flush=True)
+                        continue
+                    raise HTTPException(
+                        status_code=504,
+                        detail="Gemini models did not respond before the request deadline. Please try again."
+                    )
+
+                elapsed = round(time.monotonic() - attempt_started, 2)
+                print(
+                    f"Gemini model response: model={model_name}, status={response.status_code}, elapsed_seconds={elapsed}",
+                    flush=True
                 )
 
                 if response.is_success:
                     break
 
-                # Try the configured fallback for model-specific quota or availability errors.
+                # Retry on the configured fallback for temporary availability or quota errors.
                 if response.status_code in (404, 429, 503) and index < len(models_to_try) - 1:
                     print(
                         f"Gemini model {model_name} unavailable (HTTP {response.status_code}); trying fallback model.",
@@ -416,7 +441,7 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
     except HTTPException:
         raise
     except (asyncio.TimeoutError, httpx.TimeoutException):
-        raise HTTPException(status_code=504, detail="Riya's response took too long. Please try again.")
+        raise HTTPException(status_code=504, detail="Gemini did not respond before the request deadline. Please try again.")
     except Exception as error:
         print("GEMINI TEXT ERROR:", repr(error), flush=True)
         raise HTTPException(status_code=502, detail="The AI service could not complete the request. Please try again.")
@@ -485,6 +510,7 @@ def health_check():
         "gemini_configured": bool(GEMINI_API_KEY),
         "text_model": GEMINI_TEXT_MODEL,
         "fallback_model": GEMINI_FALLBACK_MODEL,
+        "model_timeout_seconds": GEMINI_MODEL_TIMEOUT_SECONDS,
         "voice_mode": "browser_speech_recognition_and_synthesis",
         "session_duration_minutes": SESSION_DURATION_MINUTES
     }

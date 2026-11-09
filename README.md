@@ -27,7 +27,7 @@ The Gemini API key stays on the backend. It is never placed in frontend JavaScri
 
 ## Free-tier and privacy notes
 
-Gemini API has a free tier, but it has model-specific rate limits and is not unlimited. Riya uses `gemini-3.8-flash` by default and can retry with `gemini-3.5-flash-lite` for model-specific availability or quota errors. Confirm that both models are available to your Google AI Studio project before deploying. Free-tier limits are model- and project-specific.
+Gemini API has a free tier, but it has model-specific rate limits and is not unlimited. Riya tries `gemini-3.8-flash` first and switches to `gemini-3.5-flash-lite` when the primary model times out or returns a model-availability/quota response. Each model attempt is bounded by `GEMINI_MODEL_TIMEOUT_SECONDS` (default 20 seconds), so a slow primary model does not consume the entire browser request deadline. Confirm that both models are available to your Google AI Studio project before deploying. Free-tier limits are model- and project-specific.
 
 Google's Gemini API pricing documentation states that content submitted on the free tier may be used to improve Google's products. Because visa interview answers can contain personal information, do not enter passport numbers, government identifiers, account numbers, or other highly sensitive details. The app redacts several common identifier patterns and only sends the reviewed profile fields, but this is not a guarantee that all sensitive information will be detected. Review the app's privacy notice before inviting other people to use it.
 
@@ -44,6 +44,7 @@ Browser speech recognition support varies. It works best in desktop Google Chrom
    | `GEMINI_API_KEY` | Your Google AI Studio API key |
    | `GEMINI_TEXT_MODEL` | `gemini-3.8-flash` (primary) |
    | `GEMINI_FALLBACK_MODEL` | `gemini-3.5-flash-lite` (fallback) |
+   | `GEMINI_MODEL_TIMEOUT_SECONDS` | `20` (per-model timeout; optional) |
    | `RIYA_INTERVIEW_DURATION_MINUTES` | `15` |
 
 4. Keep the key in Railway only. Never commit it or place it in `app.js`.
