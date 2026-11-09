@@ -856,39 +856,24 @@ async function startLiveVoiceSession() {
         if (!tokenResult.token) throw new Error("The backend did not return a Live API token.");
 
         const { GoogleGenAI } = await loadGeminiLiveSdk();
-        const ai = new GoogleGenAI({
-            apiKey: tokenResult.token,
+        liveToken = tokenResult.token;
+        liveModel = tokenResult.model;
+        liveAi = new GoogleGenAI({
+            apiKey: liveToken,
             httpOptions: { apiVersion: "v1alpha" }
         });
 
         liveAudioContext = new AudioContext({ sampleRate: 16000 });
         await liveAudioContext.resume();
 
-        liveSession = await ai.live.connect({
-            model: tokenResult.model,
-            config: {
-                responseModalities: ["AUDIO"],
-                inputAudioTranscription: {},
-                outputAudioTranscription: {}
-            },
-            callbacks: {
-                onmessage: handleLiveMessage,
-                onerror: event => {
-                    console.error("Gemini Live error:", event);
-                    if (!endingInterview) notify("The live voice connection encountered an error. Please try again.");
-                },
-                onclose: event => {
-                    console.warn("Gemini Live closed:", event?.reason || "connection closed");
-                    if (interviewActive && !endingInterview) {
-                        setState("idle", "Voice connection closed");
-                        notify("Riya's voice connection closed. Please end this session and try again.");
-                    }
-                }
-            }
+        liveSession = await liveAi.live.connect({
+            model: liveModel,
+            config: liveSessionConfig(),
+            callbacks: liveSessionCallbacks()
         });
 
         const audioSource = liveAudioContext.createMediaStreamSource(liveMediaStream);
-        liveAudioProcessor = liveAudioContext.createScriptProcessor(4096, 1, 1);
+        liveAudioProcessor = liveAudioContext.createScriptProcessor(1024, 1, 1);
         liveAudioProcessor.onaudioprocess = event => {
             event.outputBuffer.getChannelData(0).fill(0);
             if (!liveSession || endingInterview || liveMuted) return;
