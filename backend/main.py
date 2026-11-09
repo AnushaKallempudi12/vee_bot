@@ -350,7 +350,7 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
     else:
         output_contract = "Return one JSON object matching the requested response fields."
 
-    instructions = instructions + "\\n\\n" + output_contract
+    instructions = instructions + "\n\n" + output_contract
     endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_TEXT_MODEL}:generateContent"
     payload = {
         "systemInstruction": {"parts": [{"text": instructions}]},
