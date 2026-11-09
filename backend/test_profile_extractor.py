@@ -39,7 +39,7 @@ Person/Entity Paying for Your Trip: OTHER PERSON
 """
         profile = extract_profile(text)
         self.assertEqual(profile.get("applicant_name"), "RAMESH")
-        self.assertEqual(profile.get("us_stay_address"), "123 PARK AVENUE EDISON, NEW JERSEY")
+        self.assertEqual(profile.get("us_stay_address"), "123 PARK AVENUE EDISON, NEW JERSEY 08817")
 
 
 if __name__ == "__main__":

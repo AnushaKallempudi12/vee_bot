@@ -8,7 +8,7 @@ from typing import Optional
 ALLOWED_FIELDS = {
     "travel_purpose": ["purpose of trip", "purpose of trip to the us", "purpose of trip to the u s", "purpose of travel", "purpose of your trip to us", "purpose of visit"],
     "travel_duration": ["intended length of stay", "intended length of stay in us", "length of stay", "duration of trip"],
-    "us_stay_address": ["address where you will stay in the us", "address where you will stay in u s", "address where you will stay in us", "address where you will stay", "address in the united states where you will stay"],
+    "us_stay_address": ["address where you will stay in the us", "address where you will stay in the u s", "address where you will stay in u s", "address where you will stay in us", "address where you will stay", "address in the united states where you will stay"],
     "us_contact_name": ["contact person name in the us", "contact person name in the united states", "us point of contact name", "point of contact name"],
     "us_contact_address": ["address of point of contact", "us point of contact address", "contact person address in the us", "address of contact person in the united states"],
     "travel_destinations": ["locations you plan to visit", "cities you plan to visit", "places to be visited", "intended locations"],
