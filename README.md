@@ -29,7 +29,7 @@ The PDF profile extractor only returns approved fields. It excludes names, addre
 ## 1. Deploy the backend to Railway
 
 1. Sign in to Railway and create a new project.
-2. Choose **Deploy from GitHub Repo** and connect `AnushaKallempudi12/vee_bot`.
+2. Choose **Deploy from GitHub Repo** and connect `AnushaKallempudi12/vee_bot`. While this pull request is still open, select the branch `migration/openai-realtime-railway` so Railway can deploy the new backend before the frontend change reaches the live GitHub Pages site.
 3. Open the new service's **Settings**.
 4. Set **Root Directory** to `/backend`. This repository also contains the static frontend at its root, so the backend service must use this subdirectory.
 5. Set the build command to:
@@ -69,8 +69,9 @@ After Railway has generated the public domain:
    const BACKEND_URL = window.RIYA_BACKEND_URL || "https://YOUR-RAILWAY-DOMAIN";
    ```
 
-3. Commit the change to the deployment branch used by GitHub Pages.
-4. Wait for GitHub Pages to publish, then open the site using HTTPS and allow microphone access.
+3. Make this change on the `migration/openai-realtime-railway` branch and verify the Railway `/health` endpoint first.
+4. Then merge the migration pull request. If you want Railway to follow `main` for future deployments, change the Railway service's source branch to `main` after the merge.
+5. Wait for GitHub Pages to publish, then open the site using HTTPS and allow microphone access.
 
 The backend CORS allow-list already includes `https://anushakallempudi12.github.io`.
 
@@ -99,6 +100,10 @@ For local frontend testing, temporarily set `BACKEND_URL` in `app.js` to `http:/
 - `POST /api/interview/feedback` — generate structured interview feedback
 - `POST /api/documents/profile-preview` — extract approved fields from a PDF for user review
 - `POST /api/documents/inspect` — inspect a PDF
+
+## Production note
+
+The Realtime session endpoint is public and this prototype does not yet include user sign-in or per-user quotas. Before sharing it widely, add authentication and rate limits so other visitors cannot consume your OpenAI API credits through your backend.
 
 ## Validation status
 
