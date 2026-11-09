@@ -701,7 +701,7 @@ function updateInterviewDisplay(message, topic) {
     const nextButton = $("#nextQuestion");
     if (nextButton) {
         nextButton.classList.remove("hidden");
-        nextButton.disabled = requestInProgress;
+        nextButton.disabled = false;
     }
 
     const captionBox = $("#captionBox");
