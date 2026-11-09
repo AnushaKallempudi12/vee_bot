@@ -6,7 +6,7 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-const BACKEND_URL = "https://vee-bot-cloc.onrender.com";
+const BACKEND_URL = window.RIYA_BACKEND_URL || "https://YOUR-RAILWAY-DOMAIN";
 
 // ==================================================
 // HTML ELEMENTS
@@ -48,24 +48,14 @@ let interviewDurationMinutes = 15;
 let interviewTimer = null;
 let interviewTimeExpired = false;
 
-let liveSession = null;
-let liveAi = null;
-let liveToken = null;
-let liveModel = null;
-let liveResumptionHandle = null;
-let liveReconnectPromise = null;
-let liveReconnectInProgress = false;
-let liveConnectionGeneration = 0;
-let liveAudioContext = null;
+let livePeerConnection = null;
+let liveDataChannel = null;
 let liveMediaStream = null;
-let liveAudioProcessor = null;
-let livePlaybackSources = new Set();
-let livePlaybackCursor = 0;
+let liveAudioElement = null;
 let liveUserTranscript = "";
 let liveAssistantTranscript = "";
 let liveTurnCompleteWaiter = null;
 let liveMuted = false;
-let liveSdkPromise = null;
 
 // ==================================================
 // PROFILE FIELD LABELS
@@ -600,67 +590,6 @@ function updateInterviewDisplay(message, topic) {
     }
 }
 
-async function loadGeminiLiveSdk() {
-    if (!liveSdkPromise) {
-        liveSdkPromise = import("https://esm.sh/@google/genai").then(module => module);
-    }
-    return liveSdkPromise;
-}
-
-function floatToPcm16(input) {
-    const output = new Int16Array(input.length);
-    for (let i = 0; i < input.length; i++) {
-        const sample = Math.max(-1, Math.min(1, input[i]));
-        output[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-    }
-    return output;
-}
-
-function pcm16ToBase64(pcm) {
-    const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += 0x8000) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    }
-    return btoa(binary);
-}
-
-function base64ToPcm16(base64) {
-    const binary = atob(base64);
-    const pcm = new Int16Array(Math.floor(binary.length / 2));
-    const view = new DataView(pcm.buffer);
-    for (let i = 0; i < pcm.length; i++) {
-        view.setInt16(i * 2, binary.charCodeAt(i * 2) | (binary.charCodeAt(i * 2 + 1) << 8), true);
-    }
-    return pcm;
-}
-
-function stopLivePlayback() {
-    for (const source of livePlaybackSources) {
-        try { source.stop(); } catch {}
-    }
-    livePlaybackSources.clear();
-    livePlaybackCursor = liveAudioContext ? liveAudioContext.currentTime : 0;
-}
-
-function playLiveAudio(base64Audio, sampleRate = 24000) {
-    if (!liveAudioContext || !base64Audio) return;
-    const pcm = base64ToPcm16(base64Audio);
-    const buffer = liveAudioContext.createBuffer(1, pcm.length, sampleRate);
-    const channel = buffer.getChannelData(0);
-    for (let i = 0; i < pcm.length; i++) channel[i] = pcm[i] / 32768;
-
-    const source = liveAudioContext.createBufferSource();
-    source.buffer = buffer;
-    source.connect(liveAudioContext.destination);
-    const startAt = Math.max(liveAudioContext.currentTime + 0.03, livePlaybackCursor);
-    livePlaybackCursor = startAt + buffer.duration;
-    livePlaybackSources.add(source);
-    source.onended = () => livePlaybackSources.delete(source);
-    source.start(startAt);
-    setState("speaking", "Riya is speaking");
-}
-
 function updateLiveTranscriptDisplay(text, speaker) {
     const caption = $("#captionBox");
     if (caption && text) caption.textContent = text;
@@ -669,6 +598,25 @@ function updateLiveTranscriptDisplay(text, speaker) {
         if (question) question.textContent = text;
         currentQuestion = text;
     }
+}
+
+function sendRealtimeEvent(event) {
+    if (!liveDataChannel || liveDataChannel.readyState !== "open") {
+        throw new Error("Riya's voice connection is not ready.");
+    }
+    liveDataChannel.send(JSON.stringify(event));
+}
+
+function sendRealtimeText(text) {
+    sendRealtimeEvent({
+        type: "conversation.item.create",
+        item: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text }]
+        }
+    });
+    sendRealtimeEvent({ type: "response.create" });
 }
 
 function commitLiveTurn() {
@@ -701,141 +649,139 @@ function commitLiveTurn() {
     }
 }
 
-function liveSessionConfig(handle = null) {
-    return {
-        responseModalities: ["AUDIO"],
-        inputAudioTranscription: {},
-        outputAudioTranscription: {},
-        sessionResumption: handle ? { handle } : {},
-        contextWindowCompression: { slidingWindow: {} }
-    };
-}
+function handleRealtimeEvent(event) {
+    if (!event || typeof event !== "object") return;
 
-function liveSessionCallbacks(generation) {
-    return {
-        onmessage: handleLiveMessage,
-        onerror: event => {
-            console.error("Gemini Live error:", event);
-            if (!endingInterview) notify("The live voice connection encountered an error. Please try again.");
-        },
-        onclose: event => {
-            console.warn("Gemini Live closed:", event?.reason || "connection closed");
-            if (generation !== liveConnectionGeneration) return;
-            if (endingInterview || liveReconnectInProgress) return;
-            if (liveResumptionHandle) {
-                reconnectLiveSession();
-            } else if (interviewActive) {
-                setState("idle", "Voice connection closed");
-                notify("Riya's voice connection closed. Please end this session and try again.");
-            }
-        }
-    };
-}
-
-async function reconnectLiveSession() {
-    if (!liveAi || !liveResumptionHandle || liveReconnectPromise || endingInterview) return liveReconnectPromise;
-    const handle = liveResumptionHandle;
-    liveReconnectPromise = (async () => {
-        const previousSession = liveSession;
-        const generation = ++liveConnectionGeneration;
-        liveSession = null;
-        liveReconnectInProgress = true;
-        setState("thinking", "Reconnecting to Riya");
-        try {
-            if (previousSession) {
-                try { previousSession.close(); } catch {}
-            }
-            liveSession = await liveAi.live.connect({
-                model: liveModel,
-                config: liveSessionConfig(handle),
-                callbacks: liveSessionCallbacks(generation)
-            });
-            setState("listening", "Riya is listening");
-        } catch (error) {
-            console.error("Gemini Live resume failed:", error);
-            notify("Riya could not resume the voice connection. Please end this session and try again.");
-        } finally {
-            liveReconnectInProgress = false;
-            liveReconnectPromise = null;
-        }
-    })();
-    return liveReconnectPromise;
-}
-
-function handleLiveMessage(message) {
-    const resumeUpdate = message?.sessionResumptionUpdate || message?.session_resumption_update;
-    if (resumeUpdate?.resumable && resumeUpdate?.newHandle) {
-        liveResumptionHandle = resumeUpdate.newHandle;
-    }
-    const goAway = message?.goAway || message?.go_away;
-    if (goAway && liveResumptionHandle) {
-        reconnectLiveSession();
+    if (event.type === "error") {
+        const message = event.error?.message || "The Realtime voice session reported an error.";
+        console.error("OpenAI Realtime error:", event);
+        notify(message);
+        return;
     }
 
-    const serverContent = message?.serverContent;
-    if (!serverContent) return;
-
-    if (serverContent.interrupted) {
-        stopLivePlayback();
+    if (event.type === "input_audio_buffer.speech_started") {
         setState("listening", "Riya is listening");
     }
 
-    const inputText = serverContent.inputTranscription?.text || "";
-    if (inputText) {
-        liveUserTranscript += inputText;
-        updateLiveTranscriptDisplay(liveUserTranscript, "applicant");
-    }
-
-    const outputText = serverContent.outputTranscription?.text || "";
-    if (outputText) {
-        liveAssistantTranscript += outputText;
-        updateLiveTranscriptDisplay(liveAssistantTranscript, "riya");
-    }
-
-    const parts = serverContent.modelTurn?.parts || [];
-    for (const part of parts) {
-        const inlineData = part.inlineData || part.inline_data;
-        const mimeType = inlineData?.mimeType || inlineData?.mime_type || "";
-        if (inlineData?.data && mimeType.includes("audio")) {
-            const rateMatch = mimeType.match(/rate=([0-9]+)/);
-            playLiveAudio(inlineData.data, rateMatch ? Number(rateMatch[1]) : 24000);
+    if (event.type === "conversation.item.input_audio_transcription.completed") {
+        const transcript = event.transcript || "";
+        if (transcript) {
+            liveUserTranscript += (liveUserTranscript ? " " : "") + transcript;
+            updateLiveTranscriptDisplay(liveUserTranscript, "applicant");
         }
     }
 
-    if (serverContent.turnComplete) {
+    if (event.type === "response.created") {
+        setState("thinking", "Riya is thinking");
+    }
+
+    if (event.type === "response.output_audio_transcript.delta") {
+        if (event.delta) {
+            liveAssistantTranscript += event.delta;
+            updateLiveTranscriptDisplay(liveAssistantTranscript, "riya");
+            setState("speaking", "Riya is speaking");
+        }
+    }
+
+    if (event.type === "response.output_audio_transcript.done" && !liveAssistantTranscript) {
+        liveAssistantTranscript = event.transcript || "";
+        updateLiveTranscriptDisplay(liveAssistantTranscript, "riya");
+    }
+
+    if (event.type === "response.done") {
+        if (!liveAssistantTranscript) {
+            const output = event.response?.output || [];
+            const transcript = output.flatMap(item => item.content || [])
+                .map(part => part.transcript || part.text || "")
+                .filter(Boolean)
+                .join(" ");
+            if (transcript) {
+                liveAssistantTranscript = transcript;
+                updateLiveTranscriptDisplay(transcript, "riya");
+            }
+        }
+
         commitLiveTurn();
         if (interviewActive && !endingInterview) {
             setState("listening", "Riya is listening");
+            const micLabel = $("#micLabel");
+            if (micLabel) micLabel.textContent = liveMuted ? "Unmute microphone" : "Mute microphone";
         }
     }
 }
 
+async function waitForIceGatheringComplete(peerConnection) {
+    if (peerConnection.iceGatheringState === "complete") return;
+
+    await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            peerConnection.removeEventListener("icegatheringstatechange", onStateChange);
+            reject(new Error("Timed out while preparing the voice connection. Please try again."));
+        }, 12000);
+
+        function onStateChange() {
+            if (peerConnection.iceGatheringState !== "complete") return;
+            clearTimeout(timeout);
+            peerConnection.removeEventListener("icegatheringstatechange", onStateChange);
+            resolve();
+        }
+
+        peerConnection.addEventListener("icegatheringstatechange", onStateChange);
+        onStateChange();
+    });
+}
+
+async function waitForDataChannelOpen(channel) {
+    if (channel.readyState === "open") return;
+
+    await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error("Riya's voice channel did not open. Please try again."));
+        }, 15000);
+
+        function cleanup() {
+            clearTimeout(timeout);
+            channel.removeEventListener("open", onOpen);
+            channel.removeEventListener("error", onError);
+            channel.removeEventListener("close", onClose);
+        }
+        function onOpen() { cleanup(); resolve(); }
+        function onError() { cleanup(); reject(new Error("Riya's voice channel could not connect.")); }
+        function onClose() { cleanup(); reject(new Error("Riya's voice channel closed before connecting.")); }
+
+        channel.addEventListener("open", onOpen);
+        channel.addEventListener("error", onError);
+        channel.addEventListener("close", onClose);
+    });
+}
+
 async function closeLiveVoiceSession() {
-    if (liveAudioProcessor) {
-        liveAudioProcessor.onaudioprocess = null;
-        try { liveAudioProcessor.disconnect(); } catch {}
-        liveAudioProcessor = null;
+    if (liveDataChannel) {
+        try { liveDataChannel.close(); } catch {}
+        liveDataChannel = null;
     }
+
+    if (livePeerConnection) {
+        try { livePeerConnection.close(); } catch {}
+        livePeerConnection = null;
+    }
+
     if (liveMediaStream) {
         liveMediaStream.getTracks().forEach(track => track.stop());
         liveMediaStream = null;
     }
-    stopLivePlayback();
-    if (liveSession) {
-        try { liveSession.close(); } catch {}
-        liveSession = null;
+
+    if (liveAudioElement) {
+        liveAudioElement.pause();
+        liveAudioElement.srcObject = null;
+        liveAudioElement.remove();
+        liveAudioElement = null;
     }
-    if (liveAudioContext) {
-        try { await liveAudioContext.close(); } catch {}
-        liveAudioContext = null;
-    }
-    liveAi = null;
-    liveToken = null;
-    liveModel = null;
-    liveResumptionHandle = null;
-    liveReconnectPromise = null;
-    liveReconnectInProgress = false;
-    liveConnectionGeneration += 1;
+
+    liveUserTranscript = "";
+    liveAssistantTranscript = "";
+    liveTurnCompleteWaiter = null;
     liveMuted = false;
     $("#micButton")?.classList.remove("recording");
     const micLabel = $("#micLabel");
@@ -851,8 +797,11 @@ async function startLiveVoiceSession() {
     setState("thinking", "Connecting to Riya's live voice");
 
     try {
-        if (!navigator.mediaDevices?.getUserMedia) {
-            throw new Error("Microphone access requires a secure HTTPS connection. Open Riya in Chrome and allow microphone access.");
+        if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+            throw new Error("Live voice requires a modern browser and a secure HTTPS connection.");
+        }
+        if (BACKEND_URL.includes("YOUR-RAILWAY-DOMAIN")) {
+            throw new Error("Add your Railway backend URL in app.js before starting a voice interview.");
         }
 
         liveMediaStream = await navigator.mediaDevices.getUserMedia({
@@ -864,57 +813,72 @@ async function startLiveVoiceSession() {
             }
         });
 
-        const tokenResult = await backendRequest("/api/live/token", {
-            visa_type: visa,
-            profile: extractedProfile
-        });
-        if (!tokenResult.token) throw new Error("The backend did not return a Live API token.");
+        livePeerConnection = new RTCPeerConnection();
+        liveAudioElement = document.createElement("audio");
+        liveAudioElement.autoplay = true;
+        liveAudioElement.playsInline = true;
+        liveAudioElement.setAttribute("aria-hidden", "true");
+        document.body.appendChild(liveAudioElement);
 
-        const { GoogleGenAI } = await loadGeminiLiveSdk();
-        liveToken = tokenResult.token;
-        liveModel = tokenResult.model;
-        liveAi = new GoogleGenAI({
-            apiKey: liveToken,
-            httpOptions: { apiVersion: "v1beta" }
-        });
-
-        liveAudioContext = new AudioContext({ sampleRate: 16000 });
-        await liveAudioContext.resume();
-
-        const generation = ++liveConnectionGeneration;
-        liveSession = await liveAi.live.connect({
-            model: liveModel,
-            config: liveSessionConfig(),
-            callbacks: liveSessionCallbacks(generation)
-        });
-
-        const audioSource = liveAudioContext.createMediaStreamSource(liveMediaStream);
-        liveAudioProcessor = liveAudioContext.createScriptProcessor(1024, 1, 1);
-        liveAudioProcessor.onaudioprocess = event => {
-            event.outputBuffer.getChannelData(0).fill(0);
-            if (!liveSession || endingInterview || liveMuted) return;
-            const input = event.inputBuffer.getChannelData(0);
-            let samples = input;
-            if (liveAudioContext.sampleRate !== 16000) {
-                const ratio = liveAudioContext.sampleRate / 16000;
-                const length = Math.floor(input.length / ratio);
-                samples = new Float32Array(length);
-                for (let i = 0; i < length; i++) samples[i] = input[Math.floor(i * ratio)];
-            }
-            const pcm = floatToPcm16(samples);
-            try {
-                liveSession.sendRealtimeInput({
-                    audio: {
-                        data: pcm16ToBase64(pcm),
-                        mimeType: "audio/pcm;rate=16000"
-                    }
-                });
-            } catch (error) {
-                console.error("Live audio send failed:", error);
-            }
+        livePeerConnection.ontrack = event => {
+            liveAudioElement.srcObject = event.streams[0];
+            liveAudioElement.play().catch(error => {
+                console.warn("Audio autoplay was blocked:", error);
+                notify("If you cannot hear Riya, click the page once to allow audio playback.");
+            });
         };
-        audioSource.connect(liveAudioProcessor);
-        liveAudioProcessor.connect(liveAudioContext.destination);
+
+        liveMediaStream.getAudioTracks().forEach(track => {
+            livePeerConnection.addTrack(track, liveMediaStream);
+        });
+
+        liveDataChannel = livePeerConnection.createDataChannel("oai-events");
+        liveDataChannel.addEventListener("message", message => {
+            try {
+                handleRealtimeEvent(JSON.parse(message.data));
+            } catch (error) {
+                console.error("Could not read Realtime event:", error);
+            }
+        });
+
+        livePeerConnection.addEventListener("connectionstatechange", () => {
+            const state = livePeerConnection?.connectionState;
+            if (state === "failed" || state === "disconnected") {
+                console.warn("Realtime peer connection state:", state);
+                if (interviewActive && !endingInterview) {
+                    setState("idle", "Voice connection interrupted");
+                    notify("Riya's voice connection was interrupted. Please check your connection.");
+                }
+            }
+        });
+
+        const offer = await livePeerConnection.createOffer();
+        await livePeerConnection.setLocalDescription(offer);
+        await waitForIceGatheringComplete(livePeerConnection);
+
+        const response = await fetch(`${BACKEND_URL}/api/realtime/session`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                sdp: livePeerConnection.localDescription?.sdp,
+                visa_type: visa,
+                profile: extractedProfile
+            })
+        });
+
+        const answerSdp = await response.text();
+        if (!response.ok) {
+            throw new Error(answerSdp || `OpenAI voice connection failed (${response.status}).`);
+        }
+        if (!answerSdp.includes("v=0")) {
+            throw new Error("The voice service returned an invalid connection response.");
+        }
+
+        await livePeerConnection.setRemoteDescription({
+            type: "answer",
+            sdp: answerSdp
+        });
+        await waitForDataChannelOpen(liveDataChannel);
 
         requestInProgress = false;
         if (micButton) micButton.disabled = false;
@@ -924,19 +888,14 @@ async function startLiveVoiceSession() {
         if (micLabel) micLabel.textContent = "Mute microphone";
         $("#micButton")?.classList.add("recording");
 
-        liveSession.sendClientContent({
-            turns: [{
-                role: "user",
-                parts: [{
-                    text: "Begin the mock visa interview now. Introduce yourself as Riya and ask the applicant what name they prefer to be called. Ask only that one question."
-                }]
-            }],
-            turnComplete: true
-        });
+        sendRealtimeText(
+            "Begin the mock visa interview now. Introduce yourself as Riya and ask the applicant what name they prefer to be called. Ask only that one question."
+        );
+
         if (interviewTimeExpired) finishInterview(true);
     } catch (error) {
         requestInProgress = false;
-        console.error("Live voice startup failed:", error);
+        console.error("OpenAI Realtime startup failed:", error);
         await closeLiveVoiceSession();
         if (micButton) micButton.disabled = false;
         if (endButton) endButton.disabled = false;
@@ -1098,7 +1057,7 @@ async function finishInterview(sendEndRequest = true) {
     }
 
     try {
-        if (sendEndRequest && liveSession) {
+        if (sendEndRequest && liveDataChannel?.readyState === "open") {
             await new Promise(resolve => {
                 let settled = false;
                 const complete = () => {
@@ -1108,22 +1067,15 @@ async function finishInterview(sendEndRequest = true) {
                 };
                 liveTurnCompleteWaiter = complete;
                 try {
-                    liveSession.sendClientContent({
-                        turns: [{
-                            role: "user",
-                            parts: [{ text: "Please conclude the mock interview now. Thank the applicant and say you will prepare their feedback." }]
-                        }],
-                        turnComplete: true
-                    });
+                    sendRealtimeText(
+                        "Please conclude the mock interview now. Thank the applicant and say you will prepare their feedback."
+                    );
                 } catch {
                     complete();
                 }
-                setTimeout(complete, 8000);
+                setTimeout(complete, 10000);
             });
-            const remainingAudioMs = liveAudioContext
-                ? Math.max(0, (livePlaybackCursor - liveAudioContext.currentTime) * 1000)
-                : 0;
-            await new Promise(resolve => setTimeout(resolve, Math.max(900, remainingAudioMs + 300)));
+            await new Promise(resolve => setTimeout(resolve, 1200));
         }
 
         await closeLiveVoiceSession();
@@ -1163,8 +1115,8 @@ async function finishInterview(sendEndRequest = true) {
             strengths: [],
             improvement_areas: [error.message],
             practice_tips: [
-                "Check that the backend is running.",
-                "Check your Gemini API configuration.",
+                "Check that the Railway backend is running.",
+                "Check your OpenAI API key and Realtime model access.",
                 "Try the interview again."
             ],
             consistency_notes: [],
@@ -1777,11 +1729,8 @@ addClick("#micButton", () => {
 // ==================================================
 
 addClick("#repeatButton", () => {
-    if (currentQuestion && interviewActive && liveSession) {
-        liveSession.sendClientContent({
-            turns: [{ role: "user", parts: [{ text: "Please repeat your last question." }] }],
-            turnComplete: true
-        });
+    if (currentQuestion && interviewActive && liveDataChannel?.readyState === "open") {
+        sendRealtimeText("Please repeat your last question.");
     }
 });
 
@@ -1874,7 +1823,7 @@ setTimeout(() => {
 // INITIALIZATION
 // ==================================================
 
-console.log("Riya AI live voice frontend initialized.");
+console.log("Riya AI OpenAI Realtime voice frontend initialized.");
 
 console.log("Browser speech recognition:", !!SpeechRecognition);
 console.log("Browser speech synthesis:", !!window.speechSynthesis);
