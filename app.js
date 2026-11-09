@@ -582,46 +582,8 @@ function updateInterviewDisplay(message, topic) {
     }
 }
 
-function updateLiveTranscriptDisplay(text, speaker) {
-    const caption = $("#captionBox");
-    if (caption && text) caption.textContent = text;
-    if (speaker === "riya" && text) {
-        const question = $("#questionText");
-        if (question) question.textContent = text;
-        currentQuestion = text;
-    }
-}
-
 async function closeLiveVoiceSession() {
-    if (liveDataChannel) {
-        try { liveDataChannel.close(); } catch {}
-        liveDataChannel = null;
-    }
-
-    if (livePeerConnection) {
-        try { livePeerConnection.close(); } catch {}
-        livePeerConnection = null;
-    }
-
-    if (liveMediaStream) {
-        liveMediaStream.getTracks().forEach(track => track.stop());
-        liveMediaStream = null;
-    }
-
-    if (liveAudioElement) {
-        liveAudioElement.pause();
-        liveAudioElement.srcObject = null;
-        liveAudioElement.remove();
-        liveAudioElement = null;
-    }
-
-    liveUserTranscript = "";
-    liveAssistantTranscript = "";
-    liveTurnCompleteWaiter = null;
-    liveMuted = false;
-    $("#micButton")?.classList.remove("recording");
-    const micLabel = $("#micLabel");
-    if (micLabel) micLabel.textContent = "Microphone";
+    stopRiyaSpeaking();
 }
 
 async function startTextInterview() {
