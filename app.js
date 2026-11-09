@@ -699,10 +699,9 @@ function updateInterviewDisplay(message, topic) {
     }
 
     const nextButton = $("#nextQuestion");
-
     if (nextButton) {
-        nextButton.classList.add("hidden");
-        nextButton.disabled = true;
+        nextButton.classList.remove("hidden");
+        nextButton.disabled = requestInProgress;
     }
 
     const captionBox = $("#captionBox");
@@ -1200,7 +1199,10 @@ function showInterview() {
     }
 
     const nextButton = $("#nextQuestion");
-    if (nextButton) nextButton.classList.add("hidden");
+    if (nextButton) {
+        nextButton.classList.add("hidden");
+        nextButton.disabled = true;
+    }
 
     const questionText = $("#questionText");
     if (questionText) {
@@ -1669,6 +1671,66 @@ addClick("#backToSetup", () => {
 
     updateStep("01", "04");
 });
+
+// Skip the current question without recording a placeholder as an applicant answer.
+async function skipCurrentQuestion() {
+    if (!interviewActive || endingInterview || requestInProgress) return;
+
+    if (recognition) {
+        recognition.onend = null;
+        recognition.onerror = null;
+        try { recognition.abort(); } catch {}
+        recognition = null;
+    }
+    recording = false;
+    $("#micButton")?.classList.remove("recording");
+    if ($("#micLabel")) $("#micLabel").textContent = "Start speaking";
+
+    requestInProgress = true;
+    const nextButton = $("#nextQuestion");
+    if (nextButton) nextButton.disabled = true;
+    setState("thinking", "Moving to the next question");
+    const captionBox = $("#captionBox");
+    if (captionBox) captionBox.textContent = "Skipping this question...";
+
+    try {
+        const result = await backendRequest("/api/interview/chat", {
+            visa_type: visa,
+            language,
+            user_message: "I would like to skip this question. Please move on to the next relevant visa interview question. Do not treat this as an answer, do not infer any information, and do not repeat the current question.",
+            history: interviewHistory,
+            profile: extractedProfile,
+            start_interview: false,
+            end_interview: false
+        });
+
+        if (!interviewActive || endingInterview) {
+            requestInProgress = false;
+            return;
+        }
+
+        if (result.interview_complete) {
+            requestInProgress = false;
+            await finishInterview(false);
+            return;
+        }
+
+        interviewHistory.push({ role: "assistant", content: result.assistant_message });
+        updateInterviewDisplay(result.assistant_message, result.topic);
+        requestInProgress = false;
+        if (nextButton) nextButton.disabled = false;
+        speakRiya(result.assistant_message, true);
+    } catch (error) {
+        requestInProgress = false;
+        if (nextButton) nextButton.disabled = false;
+        console.error("Unable to skip interview question:", error);
+        notify(error.message || "Riya couldn't move to the next question. Please try again.");
+        if (captionBox) captionBox.textContent = "Couldn't skip this question. You can answer it or try Next again.";
+        setState("idle", "Riya is ready");
+    }
+}
+
+addClick("#nextQuestion", skipCurrentQuestion);
 
 // ==================================================
 // MICROPHONE BUTTON
