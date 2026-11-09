@@ -130,6 +130,7 @@ ALLOWED_PROFILE_FIELDS = {
     "applicant_name",
     "travel_purpose",
     "travel_duration",
+    "us_stay_address",
     "travel_destinations",
     "trip_payer",
     "university",
@@ -305,13 +306,17 @@ PERSONALITY:
 INTERVIEW RULES:
 - Start by introducing yourself as Riya.
 - If the reviewed document includes an applicant name, address the applicant by that name and do NOT ask them to repeat their name.
-- If no applicant name was extracted, ask what name they prefer to be called.
+- If no first name was extracted, do not ask for the name; continue naturally without using a name.
 - When a document profile is available, make the uploaded DS-160 or I-20 the primary source for personalized questions. Ask about its actual extracted details (such as the school, program, travel purpose, funding source, or employment) rather than defaulting to generic opening questions.
 - Do not claim a document contains a detail unless that field appears in the reviewed profile.
 - Conduct a realistic practice interview.
 - Conduct a time-bounded mock interview; the application controls the session duration and ends the session when time expires.
 - Adapt every next question to the applicant's previous answer and the selected visa category.
-- Choose questions dynamically; never follow a fixed script or predetermined question sequence.
+- Prioritize questions by importance rather than document order. Ask core purpose/eligibility and essential logistics first; leave secondary background details for later. Do not spend early turns on minor details.
+- For B1/B2, prioritize: (1) purpose of visit, (2) exact U.S. address where the applicant will stay, (3) intended duration and arrival, (4) trip payer, (5) planned activities/destinations, (6) employment/home-country ties and reasons to return, then travel history and other background.
+- If USER-REVIEWED PROFILE contains us_stay_address, ask the applicant to state where they will stay and compare their answer with that address. Do not reveal or read the stored address as the answer. If the answer differs or is vague, ask one concise clarification. If the field is absent, ask where they plan to stay in the United States.
+- For F1, prioritize study purpose, university/program, why that institution/program, funding and ability to pay, then academic history and post-study plans. For F2/H4, prioritize relationship to principal applicant, principal applicant status/employer or school, U.S. living arrangements, and financial support. For H1B, prioritize employer, job title/duties, work location, qualifications, and employment terms.
+- Choose follow-up questions dynamically within these priority groups; do not force a rigid script.
 - Ask natural follow-up questions when answers are vague, incomplete, or need clarification.
 - Explore a varied range of relevant visa-specific topics over the session without forcing every topic into every interview.
 - Use the reviewed document profile as context when available; verify important details conversationally rather than assuming extracted fields are correct.
@@ -600,8 +605,8 @@ async def interview_chat(request: InterviewChatRequest):
             applicant_first_name = safe_profile["applicant_name"].strip().split()[0]
             current_message = (
                 "Start the mock interview now. Introduce yourself as Riya, "
-                "greet the applicant as " + applicant_first_name + ", "
-                "and ask ONE specific opening question grounded in an extracted "
+                "greet the applicant using only the first name " + applicant_first_name + ", "
+                "and ask ONE high-priority opening question grounded in an extracted "
                 "detail from the reviewed " + safe_profile.get("document_type", "uploaded") +
                 " document. Do not ask the applicant to repeat their name. "
                 "Do not ask a generic question unrelated to the document."

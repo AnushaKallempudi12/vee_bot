@@ -29,6 +29,18 @@ Person/Entity Paying for Your Trip Self
         self.assertEqual(profile.get("travel_duration"), "14 days")
         self.assertEqual(profile.get("trip_payer"), "Self")
 
+    def test_ds160_extracts_first_name_and_us_stay_address_only(self):
+        text = """
+Online Nonimmigrant Visa Application
+Name Provided: GUPTA , RAMESH
+Address where you will stay in the U.S: 123 PARK AVENUE
+EDISON, NEW JERSEY 08817
+Person/Entity Paying for Your Trip: OTHER PERSON
+"""
+        profile = extract_profile(text)
+        self.assertEqual(profile.get("applicant_name"), "RAMESH")
+        self.assertEqual(profile.get("us_stay_address"), "123 PARK AVENUE EDISON, NEW JERSEY")
+
 
 if __name__ == "__main__":
     unittest.main()

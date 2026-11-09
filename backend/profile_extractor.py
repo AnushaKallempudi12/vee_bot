@@ -2,11 +2,13 @@ import re
 from typing import Optional
 
 
-# Interview-relevant fields only. Never extract passport numbers, SEVIS IDs,
-# DS-160 confirmation numbers, dates of birth, contact details, or home addresses.
+# Interview-relevant fields only. Never extract passport numbers, SSNs, SEVIS IDs,
+# DS-160 confirmation numbers, dates of birth, personal contact details, or home addresses.
+# The intended U.S. stay address is intentionally included for visitor interview verification.
 ALLOWED_FIELDS = {
     "travel_purpose": ["purpose of trip", "purpose of trip to the us", "purpose of trip to the u s", "purpose of travel", "purpose of your trip to us", "purpose of visit"],
     "travel_duration": ["intended length of stay", "intended length of stay in us", "length of stay", "duration of trip"],
+    "us_stay_address": ["address where you will stay in the us", "address where you will stay in u s", "address where you will stay in us", "address where you will stay"],
     "travel_destinations": ["locations you plan to visit", "cities you plan to visit", "places to be visited", "intended locations"],
     "trip_payer": ["person entity paying for your trip", "person company paying for your trip", "person paying for your trip", "who is paying for your trip", "payer of trip"],
     "university": ["name of institution", "name of school", "educational institution", "school name", "school"],
