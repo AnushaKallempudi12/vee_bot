@@ -1,6 +1,6 @@
 
 // ==================================================
-// RIYA AI - DYNAMIC GEMINI INTERVIEW FRONTEND
+// RIYA AI - OPENAI REALTIME INTERVIEW FRONTEND
 // ==================================================
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -531,7 +531,7 @@ function startListening() {
         console.log("Applicant answer:", answer);
 
         if (interviewActive && !endingInterview) {
-            await sendAnswerToGemini(answer);
+            await sendAnswerToOpenAI(answer);
         }
     };
 
@@ -544,7 +544,7 @@ function startListening() {
 }
 
 // ==================================================
-// DYNAMIC GEMINI INTERVIEW
+// OPENAI INTERVIEW
 // ==================================================
 
 function updateInterviewDisplay(message, topic) {
@@ -908,11 +908,11 @@ async function startLiveVoiceSession() {
     }
 }
 
-async function startGeminiConversation() {
+async function startOpenAIRealtimeConversation() {
     await startLiveVoiceSession();
 }
 
-async function sendAnswerToGemini(answer) {
+async function sendAnswerToOpenAI(answer) {
     if (requestInProgress || endingInterview || !interviewActive) {
         return;
     }
@@ -932,7 +932,7 @@ async function sendAnswerToGemini(answer) {
     }
 
     // Send previous turns as history and the latest answer separately.
-    // The backend appends user_message to the Gemini conversation.
+    // The backend appends user_message to the OpenAI conversation.
     try {
         const result = await backendRequest(
             "/api/interview/chat",
@@ -986,7 +986,7 @@ async function sendAnswerToGemini(answer) {
             return;
         }
 
-        console.error("Gemini conversation error:", error);
+        console.error("OpenAI conversation error:", error);
 
         notify(error.message || "Riya couldn't process your answer.");
 
@@ -1132,7 +1132,7 @@ async function finishInterview(sendEndRequest = true) {
 }
 
 // ==================================================
-// DISPLAY GEMINI FEEDBACK
+// DISPLAY OPENAI FEEDBACK
 // ==================================================
 
 function renderFeedback(feedback) {
@@ -1329,7 +1329,7 @@ function showInterview() {
     const progressText = $("#progressText");
     if (progressText) progressText.textContent = "Your interview has started";
 
-    return startGeminiConversation();
+    return startOpenAIRealtimeConversation();
 }
 
 function showComplete() {
