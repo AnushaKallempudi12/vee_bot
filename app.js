@@ -44,6 +44,10 @@ let interviewActive = false;
 let endingInterview = false;
 let recognitionShouldSubmit = false;
 
+let interviewDurationMinutes = 15;
+let interviewTimer = null;
+let interviewTimeExpired = false;
+
 // ==================================================
 // PROFILE FIELD LABELS
 // ==================================================
@@ -345,6 +349,11 @@ function speakRiya(text, listenAfterSpeaking = true) {
 
         if (endingInterview || !interviewActive) return;
 
+        if (interviewTimeExpired) {
+            finishInterview(true);
+            return;
+        }
+
         setState("idle", "Riya is ready");
 
         if (listenAfterSpeaking) {
@@ -498,6 +507,11 @@ function startListening() {
 
         if (!answer) {
             if (interviewActive && !endingInterview) {
+                if (interviewTimeExpired) {
+                    finishInterview(true);
+                    return;
+                }
+
                 setState("idle", "Riya is ready");
 
                 if (captionBox) {
@@ -592,6 +606,12 @@ async function startGeminiConversation() {
             throw new Error("Riya did not return an opening message.");
         }
 
+        if (interviewTimeExpired) {
+            requestInProgress = false;
+            await finishInterview(true);
+            return;
+        }
+
         interviewHistory.push({
             role: "assistant",
             content: result.assistant_message
@@ -608,6 +628,11 @@ async function startGeminiConversation() {
 
     } catch (error) {
         requestInProgress = false;
+
+        if (interviewTimeExpired) {
+            await finishInterview(true);
+            return;
+        }
 
         console.error("Starting Gemini interview failed:", error);
 
@@ -651,11 +676,17 @@ async function sendAnswerToGemini(answer) {
             }
         );
 
-        // Save the applicant's answer and Riya's new response.
+        // Save the applicant's answer before checking the session deadline.
         interviewHistory.push({
             role: "user",
             content: answer
         });
+
+        if (interviewTimeExpired) {
+            requestInProgress = false;
+            await finishInterview(true);
+            return;
+        }
 
         interviewHistory.push({
             role: "assistant",
@@ -680,6 +711,11 @@ async function sendAnswerToGemini(answer) {
     } catch (error) {
         requestInProgress = false;
 
+        if (interviewTimeExpired) {
+            await finishInterview(true);
+            return;
+        }
+
         console.error("Gemini conversation error:", error);
 
         notify(error.message || "Riya couldn't process your answer.");
@@ -698,9 +734,40 @@ async function sendAnswerToGemini(answer) {
 // END INTERVIEW AND GENERATE FEEDBACK
 // ==================================================
 
+function clearInterviewTimer() {
+    if (interviewTimer) {
+        clearTimeout(interviewTimer);
+        interviewTimer = null;
+    }
+}
+
+function startInterviewTimer() {
+    clearInterviewTimer();
+    interviewTimeExpired = false;
+
+    interviewTimer = setTimeout(() => {
+        interviewTimeExpired = true;
+
+        if (!interviewActive || endingInterview) return;
+        if (requestInProgress) return;
+
+        if (recording && recognition) {
+            stopListening();
+            return;
+        }
+
+        if ("speechSynthesis" in window && window.speechSynthesis.speaking) {
+            return;
+        }
+
+        finishInterview(true);
+    }, interviewDurationMinutes * 60 * 1000);
+}
+
 async function finishInterview(sendEndRequest = true) {
     if (endingInterview) return;
 
+    clearInterviewTimer();
     endingInterview = true;
     interviewActive = false;
 
@@ -898,6 +965,7 @@ function closeApp() {
     endingInterview = false;
     requestInProgress = false;
     recording = false;
+    clearInterviewTimer();
 
     if (app) {
         app.classList.add("hidden");
@@ -966,6 +1034,7 @@ function showInterview() {
     interviewActive = true;
     endingInterview = false;
     requestInProgress = false;
+    startInterviewTimer();
 
     const activeVisa = $("#activeVisa");
 
@@ -974,6 +1043,7 @@ function showInterview() {
             visa === "B1/B2" ? "B1/B2 Visitor" :
             visa === "F1" ? "F1 Student" :
             visa === "F2" ? "F2 Dependent" :
+            visa === "H4" ? "H4 Dependent" :
             "H1B Work";
     }
 
@@ -1289,6 +1359,7 @@ async function startInterview(profile = {}) {
     }
 
     extractedProfile = { ...profile };
+    interviewDurationMinutes = Number(result.session_duration_minutes) || 15;
 
     showInterview();
 
