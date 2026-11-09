@@ -346,7 +346,7 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
     try:
         async with httpx.AsyncClient(timeout=45) as client:
             response = await asyncio.wait_for(
-                client.post(endpoint, params={"key": GEMINI_API_KEY}, json=payload),
+                client.post(endpoint, headers={"x-goog-api-key": GEMINI_API_KEY}, json=payload),
                 timeout=45
             )
 
