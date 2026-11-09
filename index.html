@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=riya-ui-20261109-12" />
+  <link rel="stylesheet" href="styles.css?v=riya-ui-20261109-13" />
 </head>
 
 <body>
@@ -44,26 +44,6 @@
 
   <main>
     <section class="hero page-section" id="home">
-      <div class="hero-starfield" aria-hidden="true">
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-        <i></i>
-      </div>
       <div class="visa-floaters" aria-hidden="true">
         <span class="visa-floater floater-passport">🛂</span>
         <span class="visa-floater floater-plane">✈</span>
@@ -111,78 +91,53 @@
       </div>
 
       <div class="hero-visual">
-        <div class="orbit orbit-a"></div>
-        <div class="orbit orbit-b"></div>
-
         <div class="floating-chip chip-top">
           <span class="chip-dot"></span>
           Here to help you prepare
         </div>
 
-        <div class="riya-presence" id="heroMascot" data-state="idle" aria-label="Riya, your floating AI companion">
-          <span class="presence-glow"></span>
-          <span class="presence-spark presence-spark-main">✦</span>
-          <span class="presence-spark presence-spark-small">✧</span>
-          <span class="presence-spark presence-spark-tiny">✦</span>
-          <span class="presence-trail trail-one"></span>
-          <span class="presence-trail trail-two"></span>
-          <span class="presence-orbit-dot dot-one"></span>
-          <span class="presence-orbit-dot dot-two"></span>
-          <span class="presence-orbit-dot dot-three"></span>
-          <span class="presence-name">RIYA <i>AI COMPANION</i></span>
+        <button class="riya-presence" id="heroMascot" type="button" data-state="idle"
+          aria-label="Say hello to Riya, your AI practice companion">
+          <span class="riya-aura"></span>
+          <span class="riya-hair"></span>
+          <span class="riya-head">
+            <span class="riya-face">
+              <i class="riya-eye eye-left"></i>
+              <i class="riya-eye eye-right"></i>
+              <i class="riya-blush blush-left"></i>
+              <i class="riya-blush blush-right"></i>
+              <i class="riya-smile"></i>
+            </span>
+          </span>
+          <span class="riya-neck"></span>
+          <span class="riya-shoulders">
+            <i class="suit-collar collar-left"></i>
+            <i class="suit-collar collar-right"></i>
+            <i class="suit-core"></i>
+          </span>
+          <span class="riya-nameplate">RIYA <small>AI COMPANION</small></span>
+        </button>
+
+        <div class="riya-speech" id="riyaSpeech" role="status">
+          <strong>Hi, I'm Riya!</strong>
+          <span>Tap me to say hello. I'm here whenever you're ready to practice.</span>
         </div>
+
         <div class="floating-chip chip-bottom">
           <span class="sound-bars"><b></b><b></b><b></b><b></b></span>
           Voice-first practice
         </div>
 
-        <div class="sparkle sparkle-one">✦</div>
-        <div class="sparkle sparkle-two">✧</div>
-        <div class="sparkle sparkle-three">·</div>
-
         <div class="hero-caption">
           <span class="caption-avatar">R</span>
           <span>
-            <strong>Hi, I'm Riya!</strong>
-            <small>Your practice partner, whenever you're ready.</small>
+            <strong>Your practice partner</strong>
+            <small>Thoughtful questions, one step at a time.</small>
           </span>
         </div>
       </div>
     </section>
 
-
-    <section class="how-section page-section" id="how-it-works">
-      <div class="section-heading">
-        <div class="eyebrow">A SIMPLE WAY TO PREPARE</div>
-        <h2>Your practice. <span>Your pace.</span></h2>
-        <p>Get familiar with the flow of an interview in three simple steps.</p>
-      </div>
-
-      <div class="steps-grid">
-        <article class="step-card">
-          <div class="step-number">01</div>
-          <div class="step-icon">⌁</div>
-          <h3>Choose your visa</h3>
-          <p>Select the visa category you want to practice for and your preferred interview language.</p>
-        </article>
-
-        <article class="step-card">
-          <div class="step-number">02</div>
-          <div class="step-icon">▤</div>
-          <h3>Bring your details</h3>
-          <p>Optionally provide relevant details from your application, or start fresh without uploading a document.</p>
-        </article>
-
-        <article class="step-card">
-          <div class="step-number">03</div>
-          <div class="step-icon">◖</div>
-          <h3>Talk with Riya</h3>
-          <p>Practice answering questions out loud and review feedback to identify areas to improve.</p>
-        </article>
-      </div>
-    </section>
-
-  </main>
 
       <section class="visa-motion-strip" aria-label="Visa interview preparation themes">
       <div class="visa-motion-track">
@@ -358,6 +313,40 @@
           </button>
         </div>
       </section>
+
+    <section class="how-section page-section" id="how-it-works">
+      <div class="section-heading">
+        <div class="eyebrow">A SIMPLE WAY TO PREPARE</div>
+        <h2>Your practice. <span>Your pace.</span></h2>
+        <p>Get familiar with the flow of an interview in three simple steps.</p>
+      </div>
+
+      <div class="steps-grid">
+        <article class="step-card">
+          <div class="step-number">01</div>
+          <div class="step-icon">⌁</div>
+          <h3>Choose your visa</h3>
+          <p>Select the visa category you want to practice for and your preferred interview language.</p>
+        </article>
+
+        <article class="step-card">
+          <div class="step-number">02</div>
+          <div class="step-icon">▤</div>
+          <h3>Bring your details</h3>
+          <p>Optionally provide relevant details from your application, or start fresh without uploading a document.</p>
+        </article>
+
+        <article class="step-card">
+          <div class="step-number">03</div>
+          <div class="step-icon">◖</div>
+          <h3>Talk with Riya</h3>
+          <p>Practice answering questions out loud and review feedback to identify areas to improve.</p>
+        </article>
+      </div>
+    </section>
+
+  </main>
+
 
       <!-- PROFILE REVIEW PANEL -->
       <section class="profile-review-panel hidden" id="profileReviewPanel">
