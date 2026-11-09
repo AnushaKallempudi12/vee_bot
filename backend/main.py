@@ -702,6 +702,9 @@ async def interview_chat(request: InterviewChatRequest):
         return {
             "status": "success",
             "assistant_message": (
+                "తప్పకుండా! నాతో ప్రాక్టీస్ చేసినందుకు ధన్యవాదాలు. "
+                "ఇప్పుడు మీ ఇంటర్వ్యూను ముగించి, మీ సమాధానాలను సమీక్షిద్దాం."
+                if request.language == "Telugu" else
                 "Of course! Thank you for practicing with me. "
                 "Let's finish your interview and review your answers."
             ),
