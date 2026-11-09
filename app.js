@@ -875,7 +875,7 @@ async function startLiveVoiceSession() {
         liveModel = tokenResult.model;
         liveAi = new GoogleGenAI({
             apiKey: liveToken,
-            httpOptions: { apiVersion: "v1alpha" }
+            httpOptions: { apiVersion: "v1beta" }
         });
 
         liveAudioContext = new AudioContext({ sampleRate: 16000 });
