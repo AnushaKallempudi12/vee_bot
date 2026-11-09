@@ -56,12 +56,17 @@ let interviewTimeExpired = false;
 // ==================================================
 
 const profileLabels = {
+    applicant_name: "Applicant name",
+    document_type: "Uploaded document",
     travel_purpose: "Purpose of travel",
     travel_duration: "Travel duration",
     travel_destinations: "Travel destinations",
     trip_payer: "Who pays for the trip",
     university: "University",
     study_program: "Study program",
+    degree_level: "Degree level",
+    funding_source: "Study funding source",
+    previous_education: "Previous education",
     employer: "Employer",
     job_title: "Job title",
     job_duties: "Job duties",
@@ -69,6 +74,16 @@ const profileLabels = {
 };
 
 const profileAliases = {
+    applicant_name: "applicant_name",
+    full_name: "applicant_name",
+    student_name: "applicant_name",
+    name: "applicant_name",
+    document_type: "document_type",
+    degree_level: "degree_level",
+    education_level: "degree_level",
+    funding_source: "funding_source",
+    financial_support: "funding_source",
+    previous_education: "previous_education",
     purpose_of_travel: "travel_purpose",
     purpose_of_visit: "travel_purpose",
     travel_purpose: "travel_purpose",
@@ -1298,7 +1313,7 @@ function showProfileReview(profileData) {
     if (entries.length === 0) {
         profileEmptyMessage.textContent = profileData.document_text_available === false
             ? "This PDF appears to be scanned or image-only, so its text could not be read. You can still continue with a normal interview; Riya just won't have document details to refer to."
-            : "No supported details were identified. You can still continue with a normal interview, or go back and choose another preparation method.";
+            : "No interview-relevant details were identified in this PDF. You can still continue, but Riya will not be able to personalize questions from this document.";
     }
 
     entries.forEach(([key, value]) => {
