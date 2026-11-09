@@ -627,13 +627,13 @@ async def interview_chat(request: InterviewChatRequest):
                 "Start the mock interview now. Introduce yourself as Riya and "
                 "ask ONE specific opening question grounded in a detail from the "
                 "reviewed " + safe_profile["document_type"] +
-                " document. If no useful detail exists, ask the applicant's preferred name."
+                " document. Do not ask the applicant for their name."
             )
         else:
             current_message = (
-                "Start the mock interview now. Introduce yourself as Riya "
-                "and ask the applicant what name they prefer to be called. "
-                "Do not ask any other question in this first response."
+                "Start the mock interview now. Introduce yourself as Riya and "
+                "ask ONE high-priority opening question grounded in the selected visa category. "
+                "Do not ask the applicant for their name."
             )
     else:
         current_message = sanitize_text(request.user_message)
