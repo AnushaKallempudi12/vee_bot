@@ -48,14 +48,6 @@ let interviewDurationMinutes = 15;
 let interviewTimer = null;
 let interviewTimeExpired = false;
 
-let livePeerConnection = null;
-let liveDataChannel = null;
-let liveMediaStream = null;
-let liveAudioElement = null;
-let liveUserTranscript = "";
-let liveAssistantTranscript = "";
-let liveTurnCompleteWaiter = null;
-let liveMuted = false;
 
 // ==================================================
 // PROFILE FIELD LABELS
@@ -544,7 +536,7 @@ function startListening() {
 }
 
 // ==================================================
-// OPENAI INTERVIEW
+// GEMINI INTERVIEW
 // ==================================================
 
 function updateInterviewDisplay(message, topic) {
@@ -630,6 +622,70 @@ async function closeLiveVoiceSession() {
     $("#micButton")?.classList.remove("recording");
     const micLabel = $("#micLabel");
     if (micLabel) micLabel.textContent = "Microphone";
+}
+
+async function startTextInterview() {
+    requestInProgress = true;
+    setState("thinking", "Riya is preparing your first question");
+    const micButton = $("#micButton");
+    const endButton = $("#endButton");
+    try {
+        const result = await backendRequest("/api/interview/chat", {
+            visa_type: visa, user_message: "", history: [], profile: extractedProfile,
+            start_interview: true, end_interview: false
+        });
+        if (!interviewActive || endingInterview) { requestInProgress = false; return; }
+        interviewHistory.push({ role: "assistant", content: result.assistant_message });
+        updateInterviewDisplay(result.assistant_message, result.topic);
+        requestInProgress = false;
+        if (endButton) endButton.disabled = false;
+        if (SpeechRecognition) {
+            if (micButton) micButton.disabled = false;
+            speakRiya(result.assistant_message, true);
+        } else {
+            if (micButton) micButton.disabled = true;
+            ensureTextAnswerFallback();
+            speakRiya(result.assistant_message, false);
+            notify("Voice input is unavailable here. You can type your answers instead.");
+        }
+    } catch (error) {
+        requestInProgress = false;
+        interviewActive = false;
+        clearInterviewTimer();
+        interview?.classList.add("hidden");
+        setup?.classList.remove("hidden");
+        setState("idle", "Riya is ready");
+        console.error("Gemini interview startup failed:", error);
+        throw error;
+    }
+}
+
+function ensureTextAnswerFallback() {
+    if ($("#riyaTextFallback")) return;
+    const form = document.createElement("form");
+    form.id = "riyaTextFallback";
+    form.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;";
+    const field = document.createElement("textarea");
+    field.id = "riyaTypedAnswer";
+    field.rows = 3;
+    field.required = true;
+    field.placeholder = "Type your answer here...";
+    field.setAttribute("aria-label", "Your interview answer");
+    field.style.cssText = "flex:1 1 240px;min-width:0;padding:12px;border-radius:10px;border:1px solid #b9b4c9;font:inherit;";
+    const submit = document.createElement("button");
+    submit.type = "submit";
+    submit.textContent = "Send answer";
+    submit.style.cssText = "padding:10px 16px;border:0;border-radius:10px;cursor:pointer;font:inherit;";
+    form.append(field, submit);
+    const anchor = $("#captionBox") || $("#micButton")?.parentElement || interview;
+    anchor?.insertAdjacentElement("afterend", form);
+    form.addEventListener("submit", async event => {
+        event.preventDefault();
+        const answer = field.value.trim();
+        if (!answer || requestInProgress || !interviewActive) return;
+        field.value = "";
+        await sendAnswerToRiya(answer);
+    });
 }
 
 async function sendAnswerToRiya(answer) {
@@ -815,7 +871,7 @@ async function finishInterview(sendEndRequest = true) {
             improvement_areas: [error.message],
             practice_tips: [
                 "Check that the Railway backend is running.",
-                "Check your Gemini API key and Realtime model access.",
+                "Check your Gemini API key and free-tier limits.",
                 "Try the interview again."
             ],
             consistency_notes: [],
@@ -831,7 +887,7 @@ async function finishInterview(sendEndRequest = true) {
 }
 
 // ==================================================
-// DISPLAY OPENAI FEEDBACK
+// DISPLAY GEMINI FEEDBACK
 // ==================================================
 
 function renderFeedback(feedback) {
