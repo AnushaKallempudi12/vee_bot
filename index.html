@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=riya-ui-20261109-13" />
+  <link rel="stylesheet" href="styles.css?v=riya-ui-20261109-14" />
 </head>
 
 <body>
@@ -21,13 +21,9 @@
 
   <header class="topbar">
     <a class="brand" href="#" aria-label="Riya AI home" data-home>
-      <span class="brand-mark"><span>R</span></span>
-      <span>riya<span class="brand-ai">.ai</span></span>
+      <span class="brand-wordmark" aria-hidden="true"><svg viewBox="0 0 190 58"><text x="2" y="43">Riya</text><path d="M105 46 C132 42 149 24 166 9"/><path d="M155 8 L171 2 L165 18 L161 12 Z"/></svg></span>
     </a>
 
-    <nav class="topnav" aria-label="Main navigation">
-      <a href="#how-it-works">How it works</a>
-    </nav>
 
     <div class="top-actions">
       <span class="language-pill">
@@ -96,27 +92,7 @@
           Here to help you prepare
         </div>
 
-        <button class="riya-presence" id="heroMascot" type="button" data-state="idle"
-          aria-label="Say hello to Riya, your AI practice companion">
-          <span class="riya-aura"></span>
-          <span class="riya-hair"></span>
-          <span class="riya-head">
-            <span class="riya-face">
-              <i class="riya-eye eye-left"></i>
-              <i class="riya-eye eye-right"></i>
-              <i class="riya-blush blush-left"></i>
-              <i class="riya-blush blush-right"></i>
-              <i class="riya-smile"></i>
-            </span>
-          </span>
-          <span class="riya-neck"></span>
-          <span class="riya-shoulders">
-            <i class="suit-collar collar-left"></i>
-            <i class="suit-collar collar-right"></i>
-            <i class="suit-core"></i>
-          </span>
-          <span class="riya-nameplate">RIYA <small>AI COMPANION</small></span>
-        </button>
+        <button class="riya-presence" id="heroMascot" type="button" data-state="idle" aria-label="Say hello to Riya, your AI practice companion"><img src="assets/riya-avatar.webp" alt="Riya, the friendly purple-haired AI visa interview companion"></button>
 
         <div class="riya-speech" id="riyaSpeech" role="status">
           <strong>Hi, I'm Riya!</strong>
@@ -129,7 +105,7 @@
         </div>
 
         <div class="hero-caption">
-          <span class="caption-avatar">R</span>
+          <span class="caption-avatar">✦</span>
           <span>
             <strong>Your practice partner</strong>
             <small>Thoughtful questions, one step at a time.</small>
@@ -142,18 +118,48 @@
       <section class="visa-motion-strip" aria-label="Visa interview preparation themes">
       <div class="visa-motion-track">
         <div class="visa-motion-group">
-          <span><b>✈</b> TRAVEL PLANS</span><i>✦</i><span><b>🛂</b> VISA PREPARATION</span><i>✦</i><span><b>🌍</b> YOUR JOURNEY</span><i>✦</i><span><b>📋</b> DOCUMENT CHECKLIST</span><i>✦</i><span><b>💬</b> INTERVIEW PRACTICE</span><i>✦</i><span><b>🎓</b> STUDY GOALS</span><i>✦</i><span><b>💼</b> WORK OPPORTUNITIES</span><i>✦</i>
+          <span><b>✈</b> TRAVEL PLANS</span><i aria-hidden="true">·</i><span><b>🛂</b> VISA PREPARATION</span><i aria-hidden="true">·</i><span><b>🌍</b> YOUR JOURNEY</span><i aria-hidden="true">·</i><span><b>📋</b> DOCUMENT CHECKLIST</span><i aria-hidden="true">·</i><span><b>💬</b> INTERVIEW PRACTICE</span><i aria-hidden="true">·</i><span><b>🎓</b> STUDY GOALS</span><i aria-hidden="true">·</i><span><b>💼</b> WORK OPPORTUNITIES</span><i aria-hidden="true">·</i>
         </div>
         <div class="visa-motion-group" aria-hidden="true">
-          <span><b>✈</b> TRAVEL PLANS</span><i>✦</i><span><b>🛂</b> VISA PREPARATION</span><i>✦</i><span><b>🌍</b> YOUR JOURNEY</span><i>✦</i><span><b>📋</b> DOCUMENT CHECKLIST</span><i>✦</i><span><b>💬</b> INTERVIEW PRACTICE</span><i>✦</i><span><b>🎓</b> STUDY GOALS</span><i>✦</i><span><b>💼</b> WORK OPPORTUNITIES</span><i>✦</i>
+          <span><b>✈</b> TRAVEL PLANS</span><i aria-hidden="true">·</i><span><b>🛂</b> VISA PREPARATION</span><i aria-hidden="true">·</i><span><b>🌍</b> YOUR JOURNEY</span><i aria-hidden="true">·</i><span><b>📋</b> DOCUMENT CHECKLIST</span><i aria-hidden="true">·</i><span><b>💬</b> INTERVIEW PRACTICE</span><i aria-hidden="true">·</i><span><b>🎓</b> STUDY GOALS</span><i aria-hidden="true">·</i><span><b>💼</b> WORK OPPORTUNITIES</span><i aria-hidden="true">·</i>
         </div>
+      </div>
+    </section>
+
+    <section class="how-section page-section" id="how-it-works">
+      <div class="section-heading">
+        <div class="eyebrow">A SIMPLE WAY TO PREPARE</div>
+        <h2>Your practice. <span>Your pace.</span></h2>
+        <p>Get familiar with the flow of an interview in three simple steps.</p>
+      </div>
+
+      <div class="steps-grid">
+        <article class="step-card">
+          <div class="step-number">01</div>
+          <div class="step-icon">⌁</div>
+          <h3>Choose your visa</h3>
+          <p>Select the visa category you want to practice for and your preferred interview language.</p>
+        </article>
+
+        <article class="step-card">
+          <div class="step-number">02</div>
+          <div class="step-icon">▤</div>
+          <h3>Bring your details</h3>
+          <p>Optionally provide relevant details from your application, or start fresh without uploading a document.</p>
+        </article>
+
+        <article class="step-card">
+          <div class="step-number">03</div>
+          <div class="step-icon">◖</div>
+          <h3>Talk with Riya</h3>
+          <p>Practice answering questions out loud and review feedback to identify areas to improve.</p>
+        </article>
       </div>
     </section>
 
   <footer class="footer">
     <a class="brand footer-brand" href="#" data-home>
-      <span class="brand-mark"><span>R</span></span>
-      <span>riya<span class="brand-ai">.ai</span></span>
+      <span class="brand-wordmark" aria-hidden="true"><svg viewBox="0 0 190 58"><text x="2" y="43">Riya</text><path d="M105 46 C132 42 149 24 166 9"/><path d="M155 8 L171 2 L165 18 L161 12 Z"/></svg></span>
     </a>
 
     <span>Riya is an independent practice tool, not a government service or immigration attorney. Interview text is processed by Google Gemini. Avoid entering passport numbers, government identifiers, account numbers, or other highly sensitive details.</span>
@@ -169,8 +175,7 @@
       </button>
 
       <a class="app-brand" href="#" aria-label="Riya AI">
-        <span class="brand-mark"><span>R</span></span>
-        <span>riya<span class="brand-ai">.ai</span></span>
+        <span class="brand-wordmark" aria-hidden="true"><svg viewBox="0 0 190 58"><text x="2" y="43">Riya</text><path d="M105 46 C132 42 149 24 166 9"/><path d="M155 8 L171 2 L165 18 L161 12 Z"/></svg></span>
       </a>
 
       <div class="step-indicator">
@@ -314,36 +319,7 @@
         </div>
       </section>
 
-    <section class="how-section page-section" id="how-it-works">
-      <div class="section-heading">
-        <div class="eyebrow">A SIMPLE WAY TO PREPARE</div>
-        <h2>Your practice. <span>Your pace.</span></h2>
-        <p>Get familiar with the flow of an interview in three simple steps.</p>
-      </div>
 
-      <div class="steps-grid">
-        <article class="step-card">
-          <div class="step-number">01</div>
-          <div class="step-icon">⌁</div>
-          <h3>Choose your visa</h3>
-          <p>Select the visa category you want to practice for and your preferred interview language.</p>
-        </article>
-
-        <article class="step-card">
-          <div class="step-number">02</div>
-          <div class="step-icon">▤</div>
-          <h3>Bring your details</h3>
-          <p>Optionally provide relevant details from your application, or start fresh without uploading a document.</p>
-        </article>
-
-        <article class="step-card">
-          <div class="step-number">03</div>
-          <div class="step-icon">◖</div>
-          <h3>Talk with Riya</h3>
-          <p>Practice answering questions out loud and review feedback to identify areas to improve.</p>
-        </article>
-      </div>
-    </section>
 
   </main>
 
@@ -517,6 +493,6 @@ Live voice practice: Riya listens, responds, and adapts each follow-up to your a
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=riya-ui-20261109-2"></script>
+  <script src="app.js?v=riya-ui-20261109-14"></script>
 </body>
 </html>
