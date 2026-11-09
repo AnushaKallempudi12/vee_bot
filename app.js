@@ -177,7 +177,7 @@ function updateStep(number, total = "03") {
 }
 
 function setState(state, label) {
-    $document.querySelectorAll(".mascot-stage").forEach(element => {
+    document.querySelectorAll(".mascot-stage").forEach(element => {
         element.dataset.state = state;
     });
 
@@ -1038,7 +1038,7 @@ function closeApp() {
 
     prep = "questions";
 
-    $document.querySelectorAll(".prep-option").forEach(button => {
+    document.querySelectorAll(".prep-option").forEach(button => {
         button.classList.toggle(
             "selected",
             button.dataset.prep === "questions"
@@ -1170,9 +1170,9 @@ function showComplete() {
 // VISA CATEGORY SELECTION
 // ==================================================
 
-$document.querySelectorAll(".visa-option").forEach(button => {
+document.querySelectorAll(".visa-option").forEach(button => {
     button.addEventListener("click", () => {
-        $document.querySelectorAll(".visa-option").forEach(option => {
+        document.querySelectorAll(".visa-option").forEach(option => {
             option.classList.remove("selected");
         });
 
@@ -1189,7 +1189,7 @@ $document.querySelectorAll(".visa-option").forEach(button => {
 
 document.querySelectorAll(".language-option").forEach(button => {
     button.addEventListener("click", () => {
-        $document.querySelectorAll(".language-option").forEach(option => {
+        document.querySelectorAll(".language-option").forEach(option => {
             option.classList.remove("selected");
         });
 
@@ -1204,9 +1204,9 @@ document.querySelectorAll(".language-option").forEach(button => {
 // PREPARATION METHOD SELECTION
 // ==================================================
 
-$document.querySelectorAll(".prep-option").forEach(button => {
+document.querySelectorAll(".prep-option").forEach(button => {
     button.addEventListener("click", () => {
-        $document.querySelectorAll(".prep-option").forEach(option => {
+        document.querySelectorAll(".prep-option").forEach(option => {
             option.classList.remove("selected");
         });
 
@@ -1754,7 +1754,7 @@ addClick("#practiceAgain", () => {
 addClick("#returnHome", closeApp);
 addClick("#backHome", closeApp);
 
-$document.querySelectorAll("[data-home]").forEach(button => {
+document.querySelectorAll("[data-home]").forEach(button => {
     button.addEventListener("click", event => {
         event.preventDefault();
         closeApp();
@@ -1765,7 +1765,7 @@ $document.querySelectorAll("[data-home]").forEach(button => {
 // START BUTTONS
 // ==================================================
 
-$document.querySelectorAll("[data-start]").forEach(button => {
+document.querySelectorAll("[data-start]").forEach(button => {
     button.addEventListener("click", openApp);
 });
 
