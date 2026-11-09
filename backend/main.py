@@ -5,10 +5,8 @@ import asyncio
 import fitz
 import httpx
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
 
@@ -21,15 +19,8 @@ from profile_extractor import extract_profile
 
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_TEXT_MODEL = os.getenv("OPENAI_TEXT_MODEL", "gpt-6-luna")
-OPENAI_REALTIME_MODEL = os.getenv("OPENAI_REALTIME_MODEL", "gpt-realtime-2.1-mini")
-
-openai_client = (
-    AsyncOpenAI(api_key=OPENAI_API_KEY)
-    if OPENAI_API_KEY
-    else None
-)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "gemini-3.8-flash")
 
 app = FastAPI(
     title="Riya AI API",
@@ -68,12 +59,6 @@ VISA_TYPES = Literal["F1", "F2", "B1/B2", "H1B", "H4"]
 # --------------------------------------------------
 # DATA MODELS
 # --------------------------------------------------
-
-class RealtimeSessionRequest(BaseModel):
-    sdp: str = Field(min_length=100, max_length=100000)
-    visa_type: VISA_TYPES
-    profile: Optional[dict] = None
-
 
 class InterviewSetup(BaseModel):
     visa_type: VISA_TYPES
@@ -152,7 +137,7 @@ ALLOWED_PROFILE_FIELDS = {
 
 
 def sanitize_text(value: str) -> str:
-    """Redact common sensitive patterns before sending text to OpenAI."""
+    """Redact common sensitive patterns before sending text to the AI provider."""
 
     value = re.sub(r"[\x00-\x1f\x7f]", " ", value)
 
@@ -335,81 +320,94 @@ The interview_complete field must remain false during the conversation.
 
 
 # --------------------------------------------------
-# OPENAI TEXT HELPER
+# GEMINI TEXT HELPER
 # --------------------------------------------------
 
-async def generate_openai_response(
-    input_items,
-    instructions: str,
-    response_model
-):
-    if not openai_client:
-        raise HTTPException(
-            status_code=503,
-            detail="OpenAI is not configured. Add OPENAI_API_KEY to the backend environment."
+async def generate_gemini_response(input_items, instructions: str, response_model):
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=503, detail="Riya's AI backend is not configured. Add GEMINI_API_KEY to Railway variables.")
+
+    contents = []
+    for item in input_items:
+        role = "model" if item["role"] == "assistant" else "user"
+        contents.append({"role": role, "parts": [{"text": item["content"]}]})
+
+    if response_model.__name__ == "InterviewAIResponse":
+        output_contract = (
+            'Return exactly one JSON object with these fields: '
+            '{"assistant_message":"the spoken response or next question",'
+            '"topic":"short_snake_case_topic","interview_complete":false}. '
+            "Do not wrap the JSON in Markdown."
         )
+    elif response_model.__name__ == "InterviewFeedback":
+        output_contract = (
+            'Return exactly one JSON object with these fields: '
+            '{"overall_summary":"string","strengths":["string"],'
+            '"improvement_areas":["string"],"practice_tips":["string"],'
+            '"consistency_notes":["string"],"disclaimer":"string"}. '
+            "Do not wrap the JSON in Markdown."
+        )
+    else:
+        output_contract = "Return one JSON object matching the requested response fields."
+
+    instructions = instructions + "\n\n" + output_contract
+    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_TEXT_MODEL}:generateContent"
+    payload = {
+        "systemInstruction": {"parts": [{"text": instructions}]},
+        "contents": contents,
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "maxOutputTokens": 1200,
+            "temperature": 0.7
+        }
+    }
 
     try:
-        response = await asyncio.wait_for(
-            openai_client.responses.create(
-                model=OPENAI_TEXT_MODEL,
-                instructions=instructions,
-                input=input_items,
-                text={"format": {"type": "json_object"}},
-                max_output_tokens=1200
-            ),
-            timeout=45
-        )
-
-        if not response.output_text:
-            raise HTTPException(
-                status_code=502,
-                detail="OpenAI returned an empty response."
+        async with httpx.AsyncClient(timeout=45) as client:
+            response = await asyncio.wait_for(
+                client.post(endpoint, headers={"x-goog-api-key": GEMINI_API_KEY}, json=payload),
+                timeout=45
             )
 
-        return response_model.model_validate_json(response.output_text)
+        if not response.is_success:
+            print(f"GEMINI TEXT ERROR: status={response.status_code}, body={response.text[:1500]}", flush=True)
+            if response.status_code == 429:
+                raise HTTPException(status_code=429, detail="Riya has reached the Gemini free-tier usage limit. Please wait and try again later.")
+            if response.status_code in (401, 403):
+                raise HTTPException(status_code=503, detail="Gemini rejected the API key or model access. Check GEMINI_API_KEY and the selected model in Railway.")
+            raise HTTPException(status_code=502, detail="Gemini could not complete the request. Please try again.")
+
+        result = response.json()
+        parts = result.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+        output_text = "".join(part.get("text", "") for part in parts).strip()
+        if not output_text:
+            raise HTTPException(status_code=502, detail="Gemini returned an empty response. Please try again.")
+
+        return response_model.model_validate_json(output_text)
 
     except HTTPException:
         raise
-    except asyncio.TimeoutError:
-        print("OPENAI TEXT TIMEOUT: request exceeded 45 seconds.", flush=True)
-        raise HTTPException(
-            status_code=504,
-            detail="Riya's response took too long. Please try again."
-        )
+    except (asyncio.TimeoutError, httpx.TimeoutException):
+        raise HTTPException(status_code=504, detail="Riya's response took too long. Please try again.")
     except Exception as error:
-        print("OPENAI TEXT ERROR:", repr(error), flush=True)
-        raise HTTPException(
-            status_code=502,
-            detail="The AI service could not complete the request. Please try again."
-        )
+        print("GEMINI TEXT ERROR:", repr(error), flush=True)
+        raise HTTPException(status_code=502, detail="The AI service could not complete the request. Please try again.")
 
 
-def build_openai_input(
-    history: list[dict],
-    current_message: str
-):
+def build_conversation_input(history: list[dict], current_message: str):
     input_items = []
     applicant_has_spoken = False
-
     for turn in history[-200:]:
         if turn["role"] == "assistant" and not applicant_has_spoken:
             continue
         if turn["role"] == "user":
             applicant_has_spoken = True
-        input_items.append({
-            "role": turn["role"],
-            "content": turn["content"]
-        })
-
-    input_items.append({
-        "role": "user",
-        "content": current_message
-    })
+        input_items.append({"role": turn["role"], "content": turn["content"]})
+    if current_message:
+        input_items.append({"role": "user", "content": current_message})
     return input_items
 
 
-# --------------------------------------------------
 # INTERVIEW END DETECTION
 # --------------------------------------------------
 
@@ -448,7 +446,7 @@ def home():
     return {
         "message": "Welcome to Riya AI backend",
         "status": "running",
-        "ai_provider": "OpenAI"
+        "ai_provider": "Google Gemini"
     }
 
 
@@ -457,20 +455,19 @@ def health_check():
     return {
         "status": "healthy",
         "service": "Riya AI API",
-        "openai_configured": bool(openai_client),
-        "text_model": OPENAI_TEXT_MODEL,
-        "realtime_model": OPENAI_REALTIME_MODEL,
-        "realtime_configured": bool(openai_client),
+        "gemini_configured": bool(GEMINI_API_KEY),
+        "text_model": GEMINI_TEXT_MODEL,
+        "voice_mode": "browser_speech_recognition_and_synthesis",
         "session_duration_minutes": SESSION_DURATION_MINUTES
     }
 
 
 @app.post("/api/interview/setup")
 def create_interview_setup(setup: InterviewSetup):
-    if not openai_client:
+    if not GEMINI_API_KEY:
         raise HTTPException(
             status_code=503,
-            detail="Riya's AI backend is not configured. Add OPENAI_API_KEY to Railway variables."
+            detail="Riya's AI backend is not configured. Add GEMINI_API_KEY to Railway variables."
         )
 
     if setup.prep_mode == "document" and not setup.document_selected:
@@ -490,105 +487,15 @@ def create_interview_setup(setup: InterviewSetup):
 
 
 # --------------------------------------------------
-# OPENAI REALTIME VOICE SESSION
+# TEXT-BASED INTERVIEW CHAT (VOICE HANDLED BY THE BROWSER)
 # --------------------------------------------------
-
-@app.post("/api/realtime/session")
-async def create_realtime_session(request: RealtimeSessionRequest):
-    """Create a server-authenticated OpenAI Realtime WebRTC session."""
-    if not OPENAI_API_KEY:
-        raise HTTPException(
-            status_code=503,
-            detail="OpenAI is not configured. Add OPENAI_API_KEY to Railway variables."
-        )
-
-    safe_profile = sanitize_profile(request.profile)
-    instructions = build_system_instruction(
-        request.visa_type,
-        safe_profile
-    ) + """
-
-LIVE VOICE CONVERSATION:
-- Speak directly to the applicant in natural, concise spoken English.
-- This is a live mock visa interview, not a text chat.
-- Ask exactly one clear question at a time, then listen patiently.
-- Adapt each follow-up to what the applicant actually says; do not use a fixed question list.
-- Do not narrate internal reasoning or describe audio processing.
-- If the applicant asks to stop or says they are done, politely conclude the interview.
-- Never claim to be a consular officer or predict the visa decision.
-"""
-
-    session_config = {
-        "type": "realtime",
-        "model": OPENAI_REALTIME_MODEL,
-        "output_modalities": ["audio"],
-        "instructions": instructions,
-        "audio": {
-            "input": {
-                "transcription": {
-                    "model": "gpt-live-transcribe",
-                    "language": "en",
-                    "prompt": "Transcribe the applicant's spoken answers in a U.S. visa mock interview accurately. Preserve names, university names, employers, dates, and financial details as spoken."
-                },
-                "turn_detection": {"type": "semantic_vad"},
-                "noise_reduction": {"type": "near_field"}
-            },
-            "output": {
-                "voice": "marin"
-            }
-        }
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=45) as client:
-            upstream = await client.post(
-                "https://api.openai.com/v1/realtime/calls",
-                headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}"
-                },
-                files=[
-                    ("sdp", (None, request.sdp)),
-                    ("session", (None, json.dumps(session_config)))
-                ]
-            )
-
-        if not upstream.is_success:
-            print(
-                f"OPENAI REALTIME ERROR: status={upstream.status_code}, body={upstream.text[:2000]}",
-                flush=True
-            )
-            return PlainTextResponse(
-                content=upstream.text or "OpenAI could not create the voice session.",
-                status_code=502
-            )
-
-        return PlainTextResponse(
-            content=upstream.text,
-            status_code=upstream.status_code,
-            media_type="application/sdp",
-            headers={"Cache-Control": "no-store"}
-        )
-
-    except httpx.TimeoutException:
-        print("OPENAI REALTIME TIMEOUT: session creation exceeded 45 seconds.", flush=True)
-        raise HTTPException(
-            status_code=504,
-            detail="Riya's voice session took too long to start. Please try again."
-        )
-    except Exception as error:
-        print("OPENAI REALTIME ERROR:", repr(error), flush=True)
-        raise HTTPException(
-            status_code=502,
-            detail="Riya could not start the live voice session. Check the OpenAI API key and Realtime model access."
-        )
-
 
 @app.post("/api/interview/chat")
 async def interview_chat(request: InterviewChatRequest):
-    if not openai_client:
+    if not GEMINI_API_KEY:
         raise HTTPException(
             status_code=503,
-            detail="OpenAI is not configured."
+            detail="Gemini is not configured."
         )
 
     if not request.start_interview and not request.end_interview:
@@ -622,13 +529,13 @@ async def interview_chat(request: InterviewChatRequest):
     else:
         current_message = sanitize_text(request.user_message)
 
-    input_items = build_openai_input(safe_history, current_message)
+    input_items = build_conversation_input(safe_history, current_message)
     system_instruction = build_system_instruction(
         request.visa_type,
         safe_profile
     )
 
-    ai_result = await generate_openai_response(
+    ai_result = await generate_gemini_response(
         input_items,
         system_instruction,
         InterviewAIResponse
@@ -649,10 +556,10 @@ async def interview_chat(request: InterviewChatRequest):
 
 @app.post("/api/interview/feedback")
 async def interview_feedback(request: FeedbackRequest):
-    if not openai_client:
+    if not GEMINI_API_KEY:
         raise HTTPException(
             status_code=503,
-            detail="OpenAI is not configured."
+            detail="Gemini is not configured."
         )
 
     safe_history = sanitize_history(request.history)
@@ -698,7 +605,7 @@ INTERVIEW CONVERSATION:
 Keep feedback practical, respectful, and specific.
 """
 
-    feedback = await generate_openai_response(
+    feedback = await generate_gemini_response(
         [{"role": "user", "content": "Evaluate this completed mock interview."}],
         feedback_instruction,
         InterviewFeedback

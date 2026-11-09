@@ -1,6 +1,6 @@
 
 // ==================================================
-// RIYA AI - OPENAI REALTIME INTERVIEW FRONTEND
+// RIYA AI - GEMINI TEXT + BROWSER VOICE INTERVIEW
 // ==================================================
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -48,14 +48,6 @@ let interviewDurationMinutes = 15;
 let interviewTimer = null;
 let interviewTimeExpired = false;
 
-let livePeerConnection = null;
-let liveDataChannel = null;
-let liveMediaStream = null;
-let liveAudioElement = null;
-let liveUserTranscript = "";
-let liveAssistantTranscript = "";
-let liveTurnCompleteWaiter = null;
-let liveMuted = false;
 
 // ==================================================
 // PROFILE FIELD LABELS
@@ -531,7 +523,7 @@ function startListening() {
         console.log("Applicant answer:", answer);
 
         if (interviewActive && !endingInterview) {
-            await sendAnswerToOpenAI(answer);
+            await sendAnswerToRiya(answer);
         }
     };
 
@@ -544,7 +536,7 @@ function startListening() {
 }
 
 // ==================================================
-// OPENAI INTERVIEW
+// GEMINI INTERVIEW
 // ==================================================
 
 function updateInterviewDisplay(message, topic) {
@@ -590,329 +582,75 @@ function updateInterviewDisplay(message, topic) {
     }
 }
 
-function updateLiveTranscriptDisplay(text, speaker) {
-    const caption = $("#captionBox");
-    if (caption && text) caption.textContent = text;
-    if (speaker === "riya" && text) {
-        const question = $("#questionText");
-        if (question) question.textContent = text;
-        currentQuestion = text;
-    }
-}
-
-function sendRealtimeEvent(event) {
-    if (!liveDataChannel || liveDataChannel.readyState !== "open") {
-        throw new Error("Riya's voice connection is not ready.");
-    }
-    liveDataChannel.send(JSON.stringify(event));
-}
-
-function sendRealtimeText(text) {
-    sendRealtimeEvent({
-        type: "conversation.item.create",
-        item: {
-            type: "message",
-            role: "user",
-            content: [{ type: "input_text", text }]
-        }
-    });
-    sendRealtimeEvent({ type: "response.create" });
-}
-
-function commitLiveTurn() {
-    const userText = liveUserTranscript.trim();
-    const assistantText = liveAssistantTranscript.trim();
-
-    if (userText) interviewHistory.push({ role: "user", content: userText });
-    if (assistantText) {
-        interviewHistory.push({ role: "assistant", content: assistantText });
-        updateInterviewDisplay(assistantText, "LIVE INTERVIEW");
-    }
-
-    const normalized = userText.toLowerCase();
-    const shouldEnd = [
-        "end the interview", "stop the interview", "finish the interview",
-        "i am done", "i'm done", "i am finished", "i'm finished",
-        "that's all", "that is all", "no more questions", "i want to stop"
-    ].some(phrase => normalized.includes(phrase));
-
-    liveUserTranscript = "";
-    liveAssistantTranscript = "";
-
-    if (liveTurnCompleteWaiter) {
-        liveTurnCompleteWaiter();
-        liveTurnCompleteWaiter = null;
-    }
-
-    if (shouldEnd && interviewActive && !endingInterview) {
-        finishInterview(true);
-    }
-}
-
-function handleRealtimeEvent(event) {
-    if (!event || typeof event !== "object") return;
-
-    if (event.type === "error") {
-        const message = event.error?.message || "The Realtime voice session reported an error.";
-        console.error("OpenAI Realtime error:", event);
-        notify(message);
-        return;
-    }
-
-    if (event.type === "input_audio_buffer.speech_started") {
-        setState("listening", "Riya is listening");
-    }
-
-    if (event.type === "conversation.item.input_audio_transcription.completed") {
-        const transcript = event.transcript || "";
-        if (transcript) {
-            liveUserTranscript += (liveUserTranscript ? " " : "") + transcript;
-            updateLiveTranscriptDisplay(liveUserTranscript, "applicant");
-        }
-    }
-
-    if (event.type === "response.created") {
-        setState("thinking", "Riya is thinking");
-    }
-
-    if (event.type === "response.output_audio_transcript.delta") {
-        if (event.delta) {
-            liveAssistantTranscript += event.delta;
-            updateLiveTranscriptDisplay(liveAssistantTranscript, "riya");
-            setState("speaking", "Riya is speaking");
-        }
-    }
-
-    if (event.type === "response.output_audio_transcript.done" && !liveAssistantTranscript) {
-        liveAssistantTranscript = event.transcript || "";
-        updateLiveTranscriptDisplay(liveAssistantTranscript, "riya");
-    }
-
-    if (event.type === "response.done") {
-        if (!liveAssistantTranscript) {
-            const output = event.response?.output || [];
-            const transcript = output.flatMap(item => item.content || [])
-                .map(part => part.transcript || part.text || "")
-                .filter(Boolean)
-                .join(" ");
-            if (transcript) {
-                liveAssistantTranscript = transcript;
-                updateLiveTranscriptDisplay(transcript, "riya");
-            }
-        }
-
-        commitLiveTurn();
-        if (interviewActive && !endingInterview) {
-            setState("listening", "Riya is listening");
-            const micLabel = $("#micLabel");
-            if (micLabel) micLabel.textContent = liveMuted ? "Unmute microphone" : "Mute microphone";
-        }
-    }
-}
-
-async function waitForIceGatheringComplete(peerConnection) {
-    if (peerConnection.iceGatheringState === "complete") return;
-
-    await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-            peerConnection.removeEventListener("icegatheringstatechange", onStateChange);
-            reject(new Error("Timed out while preparing the voice connection. Please try again."));
-        }, 12000);
-
-        function onStateChange() {
-            if (peerConnection.iceGatheringState !== "complete") return;
-            clearTimeout(timeout);
-            peerConnection.removeEventListener("icegatheringstatechange", onStateChange);
-            resolve();
-        }
-
-        peerConnection.addEventListener("icegatheringstatechange", onStateChange);
-        onStateChange();
-    });
-}
-
-async function waitForDataChannelOpen(channel) {
-    if (channel.readyState === "open") return;
-
-    await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-            cleanup();
-            reject(new Error("Riya's voice channel did not open. Please try again."));
-        }, 15000);
-
-        function cleanup() {
-            clearTimeout(timeout);
-            channel.removeEventListener("open", onOpen);
-            channel.removeEventListener("error", onError);
-            channel.removeEventListener("close", onClose);
-        }
-        function onOpen() { cleanup(); resolve(); }
-        function onError() { cleanup(); reject(new Error("Riya's voice channel could not connect.")); }
-        function onClose() { cleanup(); reject(new Error("Riya's voice channel closed before connecting.")); }
-
-        channel.addEventListener("open", onOpen);
-        channel.addEventListener("error", onError);
-        channel.addEventListener("close", onClose);
-    });
-}
-
 async function closeLiveVoiceSession() {
-    if (liveDataChannel) {
-        try { liveDataChannel.close(); } catch {}
-        liveDataChannel = null;
-    }
-
-    if (livePeerConnection) {
-        try { livePeerConnection.close(); } catch {}
-        livePeerConnection = null;
-    }
-
-    if (liveMediaStream) {
-        liveMediaStream.getTracks().forEach(track => track.stop());
-        liveMediaStream = null;
-    }
-
-    if (liveAudioElement) {
-        liveAudioElement.pause();
-        liveAudioElement.srcObject = null;
-        liveAudioElement.remove();
-        liveAudioElement = null;
-    }
-
-    liveUserTranscript = "";
-    liveAssistantTranscript = "";
-    liveTurnCompleteWaiter = null;
-    liveMuted = false;
-    $("#micButton")?.classList.remove("recording");
-    const micLabel = $("#micLabel");
-    if (micLabel) micLabel.textContent = "Microphone";
+    stopRiyaSpeaking();
 }
 
-async function startLiveVoiceSession() {
+async function startTextInterview() {
     requestInProgress = true;
+    setState("thinking", "Riya is preparing your first question");
     const micButton = $("#micButton");
     const endButton = $("#endButton");
-    if (micButton) micButton.disabled = true;
-    if (endButton) endButton.disabled = true;
-    setState("thinking", "Connecting to Riya's live voice");
-
     try {
-        if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
-            throw new Error("Live voice requires a modern browser and a secure HTTPS connection.");
-        }
-        if (BACKEND_URL.includes("YOUR-RAILWAY-DOMAIN")) {
-            throw new Error("Add your Railway backend URL in app.js before starting a voice interview.");
-        }
-
-        liveMediaStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                channelCount: 1,
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-            }
+        const result = await backendRequest("/api/interview/chat", {
+            visa_type: visa, user_message: "", history: [], profile: extractedProfile,
+            start_interview: true, end_interview: false
         });
-
-        livePeerConnection = new RTCPeerConnection();
-        liveAudioElement = document.createElement("audio");
-        liveAudioElement.autoplay = true;
-        liveAudioElement.playsInline = true;
-        liveAudioElement.setAttribute("aria-hidden", "true");
-        document.body.appendChild(liveAudioElement);
-
-        livePeerConnection.ontrack = event => {
-            liveAudioElement.srcObject = event.streams[0];
-            liveAudioElement.play().catch(error => {
-                console.warn("Audio autoplay was blocked:", error);
-                notify("If you cannot hear Riya, click the page once to allow audio playback.");
-            });
-        };
-
-        liveMediaStream.getAudioTracks().forEach(track => {
-            livePeerConnection.addTrack(track, liveMediaStream);
-        });
-
-        liveDataChannel = livePeerConnection.createDataChannel("oai-events");
-        liveDataChannel.addEventListener("message", message => {
-            try {
-                handleRealtimeEvent(JSON.parse(message.data));
-            } catch (error) {
-                console.error("Could not read Realtime event:", error);
-            }
-        });
-
-        livePeerConnection.addEventListener("connectionstatechange", () => {
-            const state = livePeerConnection?.connectionState;
-            if (state === "failed" || state === "disconnected") {
-                console.warn("Realtime peer connection state:", state);
-                if (interviewActive && !endingInterview) {
-                    setState("idle", "Voice connection interrupted");
-                    notify("Riya's voice connection was interrupted. Please check your connection.");
-                }
-            }
-        });
-
-        const offer = await livePeerConnection.createOffer();
-        await livePeerConnection.setLocalDescription(offer);
-        await waitForIceGatheringComplete(livePeerConnection);
-
-        const response = await fetch(`${BACKEND_URL}/api/realtime/session`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                sdp: livePeerConnection.localDescription?.sdp,
-                visa_type: visa,
-                profile: extractedProfile
-            })
-        });
-
-        const answerSdp = await response.text();
-        if (!response.ok) {
-            throw new Error(answerSdp || `OpenAI voice connection failed (${response.status}).`);
-        }
-        if (!answerSdp.includes("v=0")) {
-            throw new Error("The voice service returned an invalid connection response.");
-        }
-
-        await livePeerConnection.setRemoteDescription({
-            type: "answer",
-            sdp: answerSdp
-        });
-        await waitForDataChannelOpen(liveDataChannel);
-
+        if (!interviewActive || endingInterview) { requestInProgress = false; return; }
+        interviewHistory.push({ role: "assistant", content: result.assistant_message });
+        updateInterviewDisplay(result.assistant_message, result.topic);
         requestInProgress = false;
-        if (micButton) micButton.disabled = false;
         if (endButton) endButton.disabled = false;
-        setState("listening", "Riya is listening");
-        const micLabel = $("#micLabel");
-        if (micLabel) micLabel.textContent = "Mute microphone";
-        $("#micButton")?.classList.add("recording");
-
-        sendRealtimeText(
-            "Begin the mock visa interview now. Introduce yourself as Riya and ask the applicant what name they prefer to be called. Ask only that one question."
-        );
-
-        if (interviewTimeExpired) finishInterview(true);
+        if (SpeechRecognition) {
+            if (micButton) micButton.disabled = false;
+            speakRiya(result.assistant_message, true);
+        } else {
+            if (micButton) micButton.disabled = true;
+            ensureTextAnswerFallback();
+            speakRiya(result.assistant_message, false);
+            notify("Voice input is unavailable here. You can type your answers instead.");
+        }
     } catch (error) {
         requestInProgress = false;
-        console.error("OpenAI Realtime startup failed:", error);
-        await closeLiveVoiceSession();
-        if (micButton) micButton.disabled = false;
-        if (endButton) endButton.disabled = false;
         interviewActive = false;
         clearInterviewTimer();
         interview?.classList.add("hidden");
         setup?.classList.remove("hidden");
         setState("idle", "Riya is ready");
+        console.error("Gemini interview startup failed:", error);
         throw error;
     }
 }
 
-async function startOpenAIRealtimeConversation() {
-    await startLiveVoiceSession();
+function ensureTextAnswerFallback() {
+    if ($("#riyaTextFallback")) return;
+    const form = document.createElement("form");
+    form.id = "riyaTextFallback";
+    form.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;";
+    const field = document.createElement("textarea");
+    field.id = "riyaTypedAnswer";
+    field.rows = 3;
+    field.required = true;
+    field.placeholder = "Type your answer here...";
+    field.setAttribute("aria-label", "Your interview answer");
+    field.style.cssText = "flex:1 1 240px;min-width:0;padding:12px;border-radius:10px;border:1px solid #b9b4c9;font:inherit;";
+    const submit = document.createElement("button");
+    submit.type = "submit";
+    submit.textContent = "Send answer";
+    submit.style.cssText = "padding:10px 16px;border:0;border-radius:10px;cursor:pointer;font:inherit;";
+    form.append(field, submit);
+    const anchor = $("#captionBox") || $("#micButton")?.parentElement || interview;
+    anchor?.insertAdjacentElement("afterend", form);
+    form.addEventListener("submit", async event => {
+        event.preventDefault();
+        const answer = field.value.trim();
+        if (!answer || requestInProgress || !interviewActive) return;
+        field.value = "";
+        await sendAnswerToRiya(answer);
+    });
 }
 
-async function sendAnswerToOpenAI(answer) {
+async function sendAnswerToRiya(answer) {
     if (requestInProgress || endingInterview || !interviewActive) {
         return;
     }
@@ -932,7 +670,7 @@ async function sendAnswerToOpenAI(answer) {
     }
 
     // Send previous turns as history and the latest answer separately.
-    // The backend appends user_message to the OpenAI conversation.
+    // The backend appends user_message to the Gemini conversation.
     try {
         const result = await backendRequest(
             "/api/interview/chat",
@@ -986,7 +724,7 @@ async function sendAnswerToOpenAI(answer) {
             return;
         }
 
-        console.error("OpenAI conversation error:", error);
+        console.error("Gemini conversation error:", error);
 
         notify(error.message || "Riya couldn't process your answer.");
 
@@ -1057,27 +795,6 @@ async function finishInterview(sendEndRequest = true) {
     }
 
     try {
-        if (sendEndRequest && liveDataChannel?.readyState === "open") {
-            await new Promise(resolve => {
-                let settled = false;
-                const complete = () => {
-                    if (settled) return;
-                    settled = true;
-                    resolve();
-                };
-                liveTurnCompleteWaiter = complete;
-                try {
-                    sendRealtimeText(
-                        "Please conclude the mock interview now. Thank the applicant and say you will prepare their feedback."
-                    );
-                } catch {
-                    complete();
-                }
-                setTimeout(complete, 10000);
-            });
-            await new Promise(resolve => setTimeout(resolve, 1200));
-        }
-
         await closeLiveVoiceSession();
 
         if (!interviewHistory.length) {
@@ -1116,7 +833,7 @@ async function finishInterview(sendEndRequest = true) {
             improvement_areas: [error.message],
             practice_tips: [
                 "Check that the Railway backend is running.",
-                "Check your OpenAI API key and Realtime model access.",
+                "Check your Gemini API key and free-tier limits.",
                 "Try the interview again."
             ],
             consistency_notes: [],
@@ -1132,7 +849,7 @@ async function finishInterview(sendEndRequest = true) {
 }
 
 // ==================================================
-// DISPLAY OPENAI FEEDBACK
+// DISPLAY GEMINI FEEDBACK
 // ==================================================
 
 function renderFeedback(feedback) {
@@ -1329,7 +1046,7 @@ function showInterview() {
     const progressText = $("#progressText");
     if (progressText) progressText.textContent = "Your interview has started";
 
-    return startOpenAIRealtimeConversation();
+    return startTextInterview();
 }
 
 function showComplete() {
@@ -1713,15 +1430,18 @@ addClick("#backToSetup", () => {
 // ==================================================
 
 addClick("#micButton", () => {
-    if (!interviewActive || endingInterview || !liveMediaStream) return;
-    liveMuted = !liveMuted;
-    liveMediaStream.getAudioTracks().forEach(track => {
-        track.enabled = !liveMuted;
-    });
-    const micLabel = $("#micLabel");
-    if (micLabel) micLabel.textContent = liveMuted ? "Unmute microphone" : "Mute microphone";
-    setState(liveMuted ? "idle" : "listening", liveMuted ? "Microphone muted" : "Riya is listening");
-    $("#micButton")?.classList.toggle("recording", !liveMuted);
+    if (!interviewActive || endingInterview || requestInProgress) return;
+
+    if (!SpeechRecognition) {
+        notify("Voice input is not supported in this browser. Please use desktop Google Chrome.");
+        return;
+    }
+
+    if (recording && recognition) {
+        stopListening();
+    } else {
+        startListening();
+    }
 });
 
 // ==================================================
@@ -1729,9 +1449,17 @@ addClick("#micButton", () => {
 // ==================================================
 
 addClick("#repeatButton", () => {
-    if (currentQuestion && interviewActive && liveDataChannel?.readyState === "open") {
-        sendRealtimeText("Please repeat your last question.");
+    if (!currentQuestion || !interviewActive || endingInterview || requestInProgress) return;
+
+    if (recognition) {
+        recognition.onend = null;
+        recognition.onerror = null;
+        try { recognition.abort(); } catch {}
+        recognition = null;
+        recording = false;
     }
+
+    speakRiya(currentQuestion, true);
 });
 
 // ==================================================
@@ -1823,7 +1551,7 @@ setTimeout(() => {
 // INITIALIZATION
 // ==================================================
 
-console.log("Riya AI OpenAI Realtime voice frontend initialized.");
+console.log("Riya AI Gemini text and browser voice frontend initialized.");
 
 console.log("Browser speech recognition:", !!SpeechRecognition);
 console.log("Browser speech synthesis:", !!window.speechSynthesis);
