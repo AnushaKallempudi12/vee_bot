@@ -64,6 +64,10 @@ def clean_candidate(value: str, allow_name: bool = False) -> Optional[str]:
     value = re.sub(r"\s+", " ", value).strip(" :|-\t")
     if not value or len(value) > 180:
         return None
+    if allow_name:
+        value = re.sub(r"[^A-Za-zÀ-ÖØ-öø-ÿ ,.'-]", "", value).strip()
+        if not value:
+            return None
     if contains_sensitive_pattern(value):
         return None
     if value.upper() in {"DOES NOT APPLY", "DO NOT KNOW", "NONE", "N/A", "YES", "NO"}:
