@@ -2,18 +2,15 @@ import os
 import re
 import json
 import asyncio
-import urllib.error
-import urllib.request
-from datetime import datetime, timedelta, timezone
-from typing import Literal, Optional
-
 import fitz
+import httpx
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from openai import AsyncOpenAI
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
+from typing import Literal, Optional
 
 from profile_extractor import extract_profile
 
@@ -24,13 +21,13 @@ from profile_extractor import extract_profile
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-LIVE_MODEL = os.getenv("GEMINI_LIVE_MODEL", "gemini-3.8-live")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_TEXT_MODEL = os.getenv("OPENAI_TEXT_MODEL", "gpt-6-luna")
+OPENAI_REALTIME_MODEL = os.getenv("OPENAI_REALTIME_MODEL", "gpt-realtime-2.1-mini")
 
-gemini_client = (
-    genai.Client(api_key=GEMINI_API_KEY)
-    if GEMINI_API_KEY
+openai_client = (
+    AsyncOpenAI(api_key=OPENAI_API_KEY)
+    if OPENAI_API_KEY
     else None
 )
 
@@ -72,7 +69,8 @@ VISA_TYPES = Literal["F1", "F2", "B1/B2", "H1B", "H4"]
 # DATA MODELS
 # --------------------------------------------------
 
-class LiveTokenRequest(BaseModel):
+class RealtimeSessionRequest(BaseModel):
+    sdp: str = Field(min_length=100, max_length=100000)
     visa_type: VISA_TYPES
     profile: Optional[dict] = None
 
@@ -337,98 +335,78 @@ The interview_complete field must remain false during the conversation.
 
 
 # --------------------------------------------------
-# GEMINI HELPER
+# OPENAI TEXT HELPER
 # --------------------------------------------------
 
-async def generate_gemini_response(
-    contents,
-    system_instruction: str,
+async def generate_openai_response(
+    input_items,
+    instructions: str,
     response_model
 ):
-    if not gemini_client:
+    if not openai_client:
         raise HTTPException(
             status_code=503,
-            detail="Gemini API key is not configured. Check your backend .env file."
+            detail="OpenAI is not configured. Add OPENAI_API_KEY to the backend environment."
         )
 
     try:
         response = await asyncio.wait_for(
-            gemini_client.aio.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    response_mime_type="application/json",
-                    response_schema=response_model,
-                    max_output_tokens=1200
-                )
+            openai_client.responses.create(
+                model=OPENAI_TEXT_MODEL,
+                instructions=instructions,
+                input=input_items,
+                text={"format": {"type": "json_object"}},
+                max_output_tokens=1200
             ),
             timeout=45
         )
 
-        if not response.text:
+        if not response.output_text:
             raise HTTPException(
                 status_code=502,
-                detail="Gemini returned an empty response."
+                detail="OpenAI returned an empty response."
             )
 
-        return response_model.model_validate_json(response.text)
+        return response_model.model_validate_json(response.output_text)
 
     except HTTPException:
         raise
-
     except asyncio.TimeoutError:
-        print("GEMINI TIMEOUT: request exceeded 45 seconds.", flush=True)
+        print("OPENAI TEXT TIMEOUT: request exceeded 45 seconds.", flush=True)
         raise HTTPException(
             status_code=504,
-            detail="Riya's AI response took too long. Please try again."
+            detail="Riya's response took too long. Please try again."
         )
-
-    except Exception as e:
-        print("GEMINI ACTUAL ERROR:", repr(e), flush=True)
+    except Exception as error:
+        print("OPENAI TEXT ERROR:", repr(error), flush=True)
         raise HTTPException(
             status_code=502,
             detail="The AI service could not complete the request. Please try again."
         )
 
-def build_gemini_contents(
+
+def build_openai_input(
     history: list[dict],
     current_message: str
 ):
-    contents = []
-
-    # Riya's initial greeting is not a user turn. Start the
-    # model conversation with the applicant's first answer.
+    input_items = []
     applicant_has_spoken = False
 
-    for turn in history:
+    for turn in history[-200:]:
         if turn["role"] == "assistant" and not applicant_has_spoken:
             continue
-
         if turn["role"] == "user":
             applicant_has_spoken = True
+        input_items.append({
+            "role": turn["role"],
+            "content": turn["content"]
+        })
 
-        role = "model" if turn["role"] == "assistant" else "user"
-
-        contents.append(
-            types.Content(
-                role=role,
-                parts=[
-                    types.Part.from_text(text=turn["content"])
-                ]
-            )
-        )
-
-    contents.append(
-        types.Content(
-            role="user",
-            parts=[
-                types.Part.from_text(text=current_message)
-            ]
-        )
-    )
-
-    return contents
+    input_items.append({
+        "role": "user",
+        "content": current_message
+    })
+    return input_items
 
 
 # --------------------------------------------------
@@ -469,7 +447,8 @@ def user_wants_to_end(message: str) -> bool:
 def home():
     return {
         "message": "Welcome to Riya AI backend",
-        "status": "running"
+        "status": "running",
+        "ai_provider": "OpenAI"
     }
 
 
@@ -478,20 +457,20 @@ def health_check():
     return {
         "status": "healthy",
         "service": "Riya AI API",
-        "gemini_configured": bool(gemini_client),
-        "gemini_model": GEMINI_MODEL,
-        "live_model": LIVE_MODEL,
-        "live_api_configured": bool(gemini_client),
+        "openai_configured": bool(openai_client),
+        "text_model": OPENAI_TEXT_MODEL,
+        "realtime_model": OPENAI_REALTIME_MODEL,
+        "realtime_configured": bool(openai_client),
         "session_duration_minutes": SESSION_DURATION_MINUTES
     }
 
 
 @app.post("/api/interview/setup")
 def create_interview_setup(setup: InterviewSetup):
-    if not gemini_client:
+    if not openai_client:
         raise HTTPException(
             status_code=503,
-            detail="Riya's AI backend is not configured. Add GEMINI_API_KEY in Render environment variables."
+            detail="Riya's AI backend is not configured. Add OPENAI_API_KEY to Railway variables."
         )
 
     if setup.prep_mode == "document" and not setup.document_selected:
@@ -505,28 +484,26 @@ def create_interview_setup(setup: InterviewSetup):
         "message": "Interview setup received successfully.",
         "setup": setup.model_dump(),
         "document_processing": "existing",
-        "interview_ai": (
-            "configured" if gemini_client else "not_configured"
-        ),
+        "interview_ai": "configured",
         "session_duration_minutes": SESSION_DURATION_MINUTES
     }
 
 
 # --------------------------------------------------
-# GEMINI INTERVIEW CHAT
+# OPENAI REALTIME VOICE SESSION
 # --------------------------------------------------
 
-@app.post("/api/live/token")
-def create_live_token(request: LiveTokenRequest):
-    """Issue a single-use, short-lived token for a browser Live API session."""
-    if not gemini_client:
+@app.post("/api/realtime/session")
+async def create_realtime_session(request: RealtimeSessionRequest):
+    """Create a server-authenticated OpenAI Realtime WebRTC session."""
+    if not OPENAI_API_KEY:
         raise HTTPException(
             status_code=503,
-            detail="Gemini API key is not configured on the backend. Add GEMINI_API_KEY in Render environment variables."
+            detail="OpenAI is not configured. Add OPENAI_API_KEY to Railway variables."
         )
 
     safe_profile = sanitize_profile(request.profile)
-    system_instruction = build_system_instruction(
+    instructions = build_system_instruction(
         request.visa_type,
         safe_profile
     ) + """
@@ -536,84 +513,83 @@ LIVE VOICE CONVERSATION:
 - This is a live mock visa interview, not a text chat.
 - Ask exactly one clear question at a time, then listen patiently.
 - Adapt each follow-up to what the applicant actually says; do not use a fixed question list.
-- Do not narrate internal reasoning, describe audio processing, or read out formatting.
+- Do not narrate internal reasoning or describe audio processing.
 - If the applicant asks to stop or says they are done, politely conclude the interview.
 - Never claim to be a consular officer or predict the visa decision.
 """
 
-    try:
-        now = datetime.now(timezone.utc)
-        model_name = LIVE_MODEL if LIVE_MODEL.startswith("models/") else f"models/{LIVE_MODEL}"
-        token_payload = {
-            "uses": 1,
-            "expireTime": (now + timedelta(minutes=SESSION_DURATION_MINUTES + 10)).isoformat().replace("+00:00", "Z"),
-            "newSessionExpireTime": (now + timedelta(minutes=1)).isoformat().replace("+00:00", "Z"),
-            "liveConnectConstraints": {
-                "model": model_name,
-                "config": {
-                    "responseModalities": ["AUDIO"],
-                    "sessionResumption": {},
-                    "systemInstruction": {
-                        "parts": [{"text": system_instruction}]
-                    },
-                    "inputAudioTranscription": {},
-                    "outputAudioTranscription": {},
-                    "speechConfig": {
-                        "voiceConfig": {
-                            "prebuiltVoiceConfig": {
-                                "voiceName": "Aoede"
-                            }
-                        }
-                    }
-                }
+    session_config = {
+        "type": "realtime",
+        "model": OPENAI_REALTIME_MODEL,
+        "output_modalities": ["audio"],
+        "instructions": instructions,
+        "audio": {
+            "input": {
+                "transcription": {
+                    "model": "gpt-live-transcribe",
+                    "language": "en",
+                    "prompt": "Transcribe the applicant's spoken answers in a U.S. visa mock interview accurately. Preserve names, university names, employers, dates, and financial details as spoken."
+                },
+                "turn_detection": {"type": "semantic_vad"},
+                "noise_reduction": {"type": "near_field"}
+            },
+            "output": {
+                "voice": "marin"
             }
         }
-        token_request = urllib.request.Request(
-            "https://generativelanguage.googleapis.com/v1beta/auth_tokens",
-            data=json.dumps(token_payload).encode("utf-8"),
-            headers={
-                "x-goog-api-key": GEMINI_API_KEY,
-                "Content-Type": "application/json"
-            },
-            method="POST"
-        )
-        try:
-            with urllib.request.urlopen(token_request, timeout=30) as response:
-                token_result = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as api_error:
-            error_body = api_error.read().decode("utf-8", errors="replace")
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=45) as client:
+            upstream = await client.post(
+                "https://api.openai.com/v1/realtime/calls",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "OpenAI-Safety-Identifier": "riya-anonymous-practice-session"
+                },
+                files=[
+                    ("sdp", (None, request.sdp)),
+                    ("session", (None, json.dumps(session_config)))
+                ]
+            )
+
+        if not upstream.is_success:
             print(
-                f"GEMINI TOKEN HTTP ERROR: status={api_error.code}, body={error_body}",
+                f"OPENAI REALTIME ERROR: status={upstream.status_code}, body={upstream.text[:2000]}",
                 flush=True
             )
-            raise RuntimeError(
-                f"Gemini token endpoint returned HTTP {api_error.code}: {error_body}"
-            ) from api_error
+            return PlainTextResponse(
+                content=upstream.text or "OpenAI could not create the voice session.",
+                status_code=502
+            )
 
-        token_name = token_result.get("name")
-        if not token_name:
-            raise RuntimeError(f"Gemini response did not contain a token name: {token_result}")
-        return {
-            "status": "success",
-            "token": token_name,
-            "model": LIVE_MODEL,
-            "session_duration_minutes": SESSION_DURATION_MINUTES
-        }
+        return PlainTextResponse(
+            content=upstream.text,
+            status_code=upstream.status_code,
+            media_type="application/sdp",
+            headers={"Cache-Control": "no-store"}
+        )
+
+    except httpx.TimeoutException:
+        print("OPENAI REALTIME TIMEOUT: session creation exceeded 45 seconds.", flush=True)
+        raise HTTPException(
+            status_code=504,
+            detail="Riya's voice session took too long to start. Please try again."
+        )
     except Exception as error:
-        print("LIVE TOKEN ERROR:", repr(error), flush=True)
+        print("OPENAI REALTIME ERROR:", repr(error), flush=True)
         raise HTTPException(
             status_code=502,
-            detail="Riya could not start a live voice session. Check the Gemini Live API model and API-key access in Render."
+            detail="Riya could not start the live voice session. Check the OpenAI API key and Realtime model access."
         )
 
 
 @app.post("/api/interview/chat")
 async def interview_chat(request: InterviewChatRequest):
-
-    if not gemini_client:
+    if not openai_client:
         raise HTTPException(
             status_code=503,
-            detail="Gemini API key is not configured."
+            detail="OpenAI is not configured."
         )
 
     if not request.start_interview and not request.end_interview:
@@ -647,18 +623,14 @@ async def interview_chat(request: InterviewChatRequest):
     else:
         current_message = sanitize_text(request.user_message)
 
-    contents = build_gemini_contents(
-        safe_history,
-        current_message
-    )
-
+    input_items = build_openai_input(safe_history, current_message)
     system_instruction = build_system_instruction(
         request.visa_type,
         safe_profile
     )
 
-    ai_result = await generate_gemini_response(
-        contents,
+    ai_result = await generate_openai_response(
+        input_items,
         system_instruction,
         InterviewAIResponse
     )
@@ -678,11 +650,10 @@ async def interview_chat(request: InterviewChatRequest):
 
 @app.post("/api/interview/feedback")
 async def interview_feedback(request: FeedbackRequest):
-
-    if not gemini_client:
+    if not openai_client:
         raise HTTPException(
             status_code=503,
-            detail="Gemini API key is not configured."
+            detail="OpenAI is not configured."
         )
 
     safe_history = sanitize_history(request.history)
@@ -728,10 +699,10 @@ INTERVIEW CONVERSATION:
 Keep feedback practical, respectful, and specific.
 """
 
-    feedback = await generate_gemini_response(
-        contents="Evaluate this completed mock interview.",
-        system_instruction=feedback_instruction,
-        response_model=InterviewFeedback
+    feedback = await generate_openai_response(
+        [{"role": "user", "content": "Evaluate this completed mock interview."}],
+        feedback_instruction,
+        InterviewFeedback
     )
 
     return {
