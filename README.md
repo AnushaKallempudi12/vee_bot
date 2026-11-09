@@ -50,7 +50,7 @@ Browser speech recognition support varies. It works best in desktop Google Chrom
 
 ## 2. Deploy the backend to Railway
 
-1. Connect `AnushaKallempudi12/vee_bot` to Railway.
+1. Connect `AnushaKallempudi12/vee_bot` to Railway and set the deployment branch to `main`.
 2. Set the service's **Root Directory** to `/backend`.
 3. Set the build command to:
 
@@ -70,13 +70,33 @@ Browser speech recognition support varies. It works best in desktop Google Chrom
 
 ## 3. Configure GitHub Pages
 
+The production frontend is the static application at the repository root:
+
+- `index.html`
+- `app.js`
+- `styles.css`
+
+The repository also contains an unused Vite/React starter under `src/`. It is not the Riya production frontend and must not be used as the Pages build output.
+
+### One-time GitHub Pages setting
+
+1. Open **Repository → Settings → Pages**.
+2. Under **Build and deployment → Source**, select **GitHub Actions**.
+3. Save the setting if GitHub displays a Save button.
+
+The workflow in `.github/workflows/pages.yml` validates JavaScript syntax and compiles the backend Python files on pull requests. After changes are merged or pushed to `main`, it publishes only `index.html`, `app.js`, and `styles.css`. It deliberately does not publish the backend source, README, or unused Vite starter files.
+
+Do not configure Pages to publish the old `migration/openai-realtime-railway`, `feature/live-voice-main`, or `feature/live-voice-interview` branches. The production branch is `main`.
+
+### Frontend/backend connection
+
 The frontend's `BACKEND_URL` in `app.js` should point to the Railway public domain:
 
 ```js
-const BACKEND_URL = "https://YOUR-RAILWAY-DOMAIN";
+const BACKEND_URL = "https://veebot-production.up.railway.app";
 ```
 
-The current project already uses the Railway domain. Keep the GitHub Pages site on HTTPS and allow microphone access when prompted. The backend CORS allow-list includes `https://anushakallempudi12.github.io`.
+Keep the GitHub Pages site on HTTPS and allow microphone access when prompted. The backend CORS allow-list includes `https://anushakallempudi12.github.io`.
 
 ## 4. Local backend development
 
