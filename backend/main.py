@@ -536,12 +536,14 @@ LIVE VOICE CONVERSATION:
         token = gemini_client.auth_tokens.create(
             config={
                 "uses": 1,
-                "expire_time": now + timedelta(minutes=25),
+                "expire_time": now + timedelta(minutes=SESSION_DURATION_MINUTES + 10),
                 "new_session_expire_time": now + timedelta(minutes=1),
                 "live_connect_constraints": {
                     "model": LIVE_MODEL,
                     "config": {
                         "response_modalities": ["AUDIO"],
+                        "session_resumption": {},
+                        "context_window_compression": {"sliding_window": {}},
                         "system_instruction": {
                             "parts": [{"text": system_instruction}]
                         },
