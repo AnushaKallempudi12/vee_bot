@@ -34,6 +34,13 @@ jobs:
       - name: Check JavaScript syntax
         run: node --check app.js
 
+      - name: Check production frontend files
+        run: |
+          test -s index.html
+          test -s app.js
+          test -s styles.css
+          grep -q 'app.js' index.html
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -44,7 +51,7 @@ jobs:
 
   deploy:
     name: Publish Riya AI static frontend
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: validate
     runs-on: ubuntu-latest
     environment:
@@ -59,6 +66,24 @@ jobs:
           mkdir -p _site
           cp index.html app.js styles.css _site/
           touch _site/.nojekyll
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          index = Path("_site/index.html")
+          html = index.read_text()
+          html, replacements = re.subn(
+              r'app\\.js(?:\\?v=[^"]*)?(?=")',
+              f'app.js?v={os.environ["GITHUB_SHA"]}',
+              html,
+          )
+          if replacements != 1:
+              raise SystemExit(
+                  f"Expected exactly one app.js script reference; found {replacements}"
+              )
+          index.write_text(html)
+          PY
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
