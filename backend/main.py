@@ -131,6 +131,8 @@ ALLOWED_PROFILE_FIELDS = {
     "travel_purpose",
     "travel_duration",
     "us_stay_address",
+    "us_contact_name",
+    "us_contact_address",
     "travel_destinations",
     "trip_payer",
     "university",
@@ -314,7 +316,9 @@ INTERVIEW RULES:
 - Adapt every next question to the applicant's previous answer and the selected visa category.
 - Prioritize questions by importance rather than document order. Ask core purpose/eligibility and essential logistics first; leave secondary background details for later. Do not spend early turns on minor details.
 - For B1/B2, prioritize: (1) purpose of visit, (2) exact U.S. address where the applicant will stay, (3) intended duration and arrival, (4) trip payer, (5) planned activities/destinations, (6) employment/home-country ties and reasons to return, then travel history and other background.
-- If USER-REVIEWED PROFILE contains us_stay_address, ask the applicant to state where they will stay and compare their answer with that address. Do not reveal or read the stored address as the answer. If the answer differs or is vague, ask one concise clarification. If the field is absent, ask where they plan to stay in the United States.
+- For EVERY visa category, include the U.S. point-of-contact and intended living/stay arrangement among the core interview checks. Ask who the applicant will contact or stay with in the United States, and where they plan to stay. These are practice checks, not a claim that every visa class has the same legal checklist.
+- Compare the applicant's spoken answer with available reviewed profile evidence: us_stay_address, us_contact_name, us_contact_address, and relevant host/school/employer details. Do not reveal or read the stored address as the answer. If the answer conflicts with the document, ask one concise clarification and note the inconsistency; do not silently resolve it or assume the PDF is correct. If no relevant field exists, ask naturally and assess the answer on its own.
+- Treat the U.S. stay address and U.S. point of contact as cross-category checks, not B1/B2-only questions. For F1, the school/institution may be the contact context but do not assume the campus address is the applicant's residence. For F2/H4, verify the host/principal applicant and intended shared living arrangement. For H1B, verify the U.S. employer/work location separately from the applicant's actual planned residence.
 - For F1, prioritize study purpose, university/program, why that institution/program, funding and ability to pay, then academic history and post-study plans. For F2/H4, prioritize relationship to principal applicant, principal applicant status/employer or school, U.S. living arrangements, and financial support. For H1B, prioritize employer, job title/duties, work location, qualifications, and employment terms.
 - Choose follow-up questions dynamically within these priority groups; do not force a rigid script.
 - Ask natural follow-up questions when answers are vague, incomplete, or need clarification.
