@@ -1254,6 +1254,8 @@ function openApp() {
 }
 
 function closeApp() {
+    endingInterview = true;
+    closeLiveVoiceSession();
     stopRiyaSpeaking();
 
     if (recognition) {
@@ -1268,7 +1270,6 @@ function closeApp() {
     }
 
     interviewActive = false;
-    endingInterview = false;
     requestInProgress = false;
     recording = false;
     clearInterviewTimer();
