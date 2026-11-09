@@ -2,6 +2,8 @@ import os
 import re
 import json
 import asyncio
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
@@ -28,17 +30,6 @@ LIVE_MODEL = os.getenv("GEMINI_LIVE_MODEL", "gemini-3.8-live")
 
 gemini_client = (
     genai.Client(api_key=GEMINI_API_KEY)
-    if GEMINI_API_KEY
-    else None
-)
-
-# Ephemeral token creation is available through the Gemini Developer API v1alpha.
-# Keep this separate so regular generate_content calls retain their default API version.
-live_token_client = (
-    genai.Client(
-        api_key=GEMINI_API_KEY,
-        http_options=types.HttpOptions(api_version="v1alpha")
-    )
     if GEMINI_API_KEY
     else None
 )
@@ -552,38 +543,59 @@ LIVE VOICE CONVERSATION:
 
     try:
         now = datetime.now(timezone.utc)
-        token = live_token_client.auth_tokens.create(
-            config={
-                "uses": 1,
-                "expire_time": now + timedelta(minutes=SESSION_DURATION_MINUTES + 10),
-                "new_session_expire_time": now + timedelta(minutes=1),
-                "live_connect_constraints": {
-                    "model": LIVE_MODEL,
-                    "config": {
-                        "response_modalities": ["AUDIO"],
-                        "session_resumption": {},
-                        "context_window_compression": {"sliding_window": {}},
-                        "system_instruction": {
-                            "parts": [{"text": system_instruction}]
-                        },
-                        "input_audio_transcription": {},
-                        "output_audio_transcription": {},
-                        "speech_config": {
-                            "voice_config": {
-                                "prebuilt_voice_config": {
-                                    "voice_name": "Aoede"
-                                }
+        model_name = LIVE_MODEL if LIVE_MODEL.startswith("models/") else f"models/{LIVE_MODEL}"
+        token_payload = {
+            "uses": 1,
+            "expireTime": (now + timedelta(minutes=SESSION_DURATION_MINUTES + 10)).isoformat().replace("+00:00", "Z"),
+            "newSessionExpireTime": (now + timedelta(minutes=1)).isoformat().replace("+00:00", "Z"),
+            "liveConnectConstraints": {
+                "model": model_name,
+                "config": {
+                    "responseModalities": ["AUDIO"],
+                    "sessionResumption": {},
+                    "systemInstruction": {
+                        "parts": [{"text": system_instruction}]
+                    },
+                    "inputAudioTranscription": {},
+                    "outputAudioTranscription": {},
+                    "speechConfig": {
+                        "voiceConfig": {
+                            "prebuiltVoiceConfig": {
+                                "voiceName": "Aoede"
                             }
                         }
                     }
                 }
             }
+        }
+        token_request = urllib.request.Request(
+            "https://generativelanguage.googleapis.com/v1beta/auth_tokens",
+            data=json.dumps(token_payload).encode("utf-8"),
+            headers={
+                "x-goog-api-key": GEMINI_API_KEY,
+                "Content-Type": "application/json"
+            },
+            method="POST"
         )
-        if not getattr(token, "name", None):
-            raise RuntimeError("Gemini did not return an ephemeral token.")
+        try:
+            with urllib.request.urlopen(token_request, timeout=30) as response:
+                token_result = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as api_error:
+            error_body = api_error.read().decode("utf-8", errors="replace")
+            print(
+                f"GEMINI TOKEN HTTP ERROR: status={api_error.code}, body={error_body}",
+                flush=True
+            )
+            raise RuntimeError(
+                f"Gemini token endpoint returned HTTP {api_error.code}: {error_body}"
+            ) from api_error
+
+        token_name = token_result.get("name")
+        if not token_name:
+            raise RuntimeError(f"Gemini response did not contain a token name: {token_result}")
         return {
             "status": "success",
-            "token": token.name,
+            "token": token_name,
             "model": LIVE_MODEL,
             "session_duration_minutes": SESSION_DURATION_MINUTES
         }
