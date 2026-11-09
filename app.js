@@ -38,6 +38,8 @@ let recording = false;
 let currentTranscript = "";
 let currentQuestion = "";
 let selectedVoiceURI = "";
+let microphoneMuted = false;
+let riyaMuted = false;
 
 let requestInProgress = false;
 let interviewActive = false;
@@ -303,6 +305,13 @@ function setupVoiceSelector() {
 }
 
 function speakRiya(text, listenAfterSpeaking = true) {
+    if (riyaMuted) {
+        setState("idle", "Riya's voice is muted");
+        if (listenAfterSpeaking && !microphoneMuted && interviewActive && !endingInterview) {
+            setTimeout(() => startListening(), 100);
+        }
+        return;
+    }
     if (!text || !text.trim()) {
         console.error("Riya received no text to speak.");
         return;
@@ -357,7 +366,7 @@ function speakRiya(text, listenAfterSpeaking = true) {
 
         setState("idle", "Riya is ready");
 
-        if (listenAfterSpeaking) {
+        if (listenAfterSpeaking && !microphoneMuted) {
             // Allow the browser to finish the speech event first.
             setTimeout(() => {
                 if (interviewActive && !endingInterview) {
@@ -393,7 +402,7 @@ function stopListening() {
 }
 
 function startListening() {
-    if (!interviewActive || endingInterview || requestInProgress) {
+    if (!interviewActive || endingInterview || requestInProgress || microphoneMuted) {
         return;
     }
 
@@ -689,6 +698,11 @@ async function sendAnswerToRiya(answer) {
             content: answer
         });
 
+        if (!interviewActive || endingInterview) {
+            requestInProgress = false;
+            return;
+        }
+
         if (interviewTimeExpired) {
             requestInProgress = false;
             await finishInterview(true);
@@ -783,7 +797,10 @@ async function finishInterview(sendEndRequest = true) {
     }
 
     recording = false;
+    microphoneMuted = true;
+    stopRiyaSpeaking();
     requestInProgress = true;
+    updateMuteButtons();
 
     setState("thinking", "Riya is preparing your feedback");
 
@@ -940,6 +957,8 @@ function closeApp() {
     interviewActive = false;
     requestInProgress = false;
     recording = false;
+    microphoneMuted = true;
+    riyaMuted = true;
     clearInterviewTimer();
 
     if (app) {
@@ -1008,6 +1027,9 @@ function showInterview() {
 
     interviewActive = true;
     endingInterview = false;
+    microphoneMuted = false;
+    riyaMuted = false;
+    updateMuteButtons();
     requestInProgress = false;
     const micButton = $("#micButton");
     if (micButton) micButton.disabled = true;
@@ -1433,6 +1455,58 @@ addClick("#backToSetup", () => {
 // MICROPHONE BUTTON
 // ==================================================
 
+function updateMuteButtons() {
+    const micMuteButton = $("#micMuteButton");
+    const riyaMuteButton = $("#riyaMuteButton");
+
+    if (micMuteButton) {
+        micMuteButton.textContent = microphoneMuted ? "🎙̸" : "🎙";
+        micMuteButton.title = microphoneMuted ? "Unmute microphone" : "Mute microphone";
+        micMuteButton.setAttribute("aria-label", micMuteButton.title);
+        micMuteButton.setAttribute("aria-pressed", String(microphoneMuted));
+        micMuteButton.classList.toggle("is-muted", microphoneMuted);
+    }
+
+    if (riyaMuteButton) {
+        riyaMuteButton.textContent = riyaMuted ? "🔇" : "🔊";
+        riyaMuteButton.title = riyaMuted ? "Unmute Riya's voice" : "Mute Riya's voice";
+        riyaMuteButton.setAttribute("aria-label", riyaMuteButton.title);
+        riyaMuteButton.setAttribute("aria-pressed", String(riyaMuted));
+        riyaMuteButton.classList.toggle("is-muted", riyaMuted);
+    }
+}
+
+addClick("#micMuteButton", () => {
+    if (!interviewActive || endingInterview) return;
+    microphoneMuted = !microphoneMuted;
+
+    if (microphoneMuted && recognition) {
+        recognition.onend = null;
+        recognition.onerror = null;
+        try { recognition.abort(); } catch {}
+        recognition = null;
+        recording = false;
+        $("#micButton")?.classList.remove("recording");
+        if ($("#micLabel")) $("#micLabel").textContent = "Start speaking";
+        setState("idle", "Microphone muted");
+    } else if (!microphoneMuted && !requestInProgress) {
+        startListening();
+    }
+    updateMuteButtons();
+});
+
+addClick("#riyaMuteButton", () => {
+    if (!interviewActive || endingInterview) return;
+    riyaMuted = !riyaMuted;
+    if (riyaMuted) {
+        stopRiyaSpeaking();
+        setState("idle", "Riya's voice is muted");
+    } else if (currentQuestion) {
+        speakRiya(currentQuestion, true);
+    }
+    updateMuteButtons();
+});
+
 addClick("#micButton", () => {
     if (!interviewActive || endingInterview || requestInProgress) return;
 
@@ -1504,6 +1578,9 @@ addClick("#practiceAgain", () => {
 
     interviewHistory = [];
     extractedProfile = {};
+    microphoneMuted = false;
+    riyaMuted = false;
+    updateMuteButtons();
     currentTranscript = "";
     currentQuestion = "";
     file = null;
