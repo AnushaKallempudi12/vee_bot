@@ -48,6 +48,25 @@ let interviewDurationMinutes = 15;
 let interviewTimer = null;
 let interviewTimeExpired = false;
 
+let liveSession = null;
+let liveAi = null;
+let liveToken = null;
+let liveModel = null;
+let liveResumptionHandle = null;
+let liveReconnectPromise = null;
+let liveReconnectInProgress = false;
+let liveConnectionGeneration = 0;
+let liveAudioContext = null;
+let liveMediaStream = null;
+let liveAudioProcessor = null;
+let livePlaybackSources = new Set();
+let livePlaybackCursor = 0;
+let liveUserTranscript = "";
+let liveAssistantTranscript = "";
+let liveTurnCompleteWaiter = null;
+let liveMuted = false;
+let liveSdkPromise = null;
+
 // ==================================================
 // PROFILE FIELD LABELS
 // ==================================================
@@ -375,10 +394,6 @@ function speakRiya(text, listenAfterSpeaking = true) {
 }
 
 // Load browser voices when they become available.
-if ("speechSynthesis" in window) {
-    window.speechSynthesis.onvoiceschanged = setupVoiceSelector;
-}
-
 // ==================================================
 // SPEECH RECOGNITION
 // ==================================================
@@ -585,61 +600,349 @@ function updateInterviewDisplay(message, topic) {
     }
 }
 
-async function startGeminiConversation() {
+async function loadGeminiLiveSdk() {
+    if (!liveSdkPromise) {
+        liveSdkPromise = import("https://esm.sh/@google/genai").then(module => module);
+    }
+    return liveSdkPromise;
+}
+
+function floatToPcm16(input) {
+    const output = new Int16Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+        const sample = Math.max(-1, Math.min(1, input[i]));
+        output[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+    }
+    return output;
+}
+
+function pcm16ToBase64(pcm) {
+    const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(binary);
+}
+
+function base64ToPcm16(base64) {
+    const binary = atob(base64);
+    const pcm = new Int16Array(Math.floor(binary.length / 2));
+    const view = new DataView(pcm.buffer);
+    for (let i = 0; i < pcm.length; i++) {
+        view.setInt16(i * 2, binary.charCodeAt(i * 2) | (binary.charCodeAt(i * 2 + 1) << 8), true);
+    }
+    return pcm;
+}
+
+function stopLivePlayback() {
+    for (const source of livePlaybackSources) {
+        try { source.stop(); } catch {}
+    }
+    livePlaybackSources.clear();
+    livePlaybackCursor = liveAudioContext ? liveAudioContext.currentTime : 0;
+}
+
+function playLiveAudio(base64Audio, sampleRate = 24000) {
+    if (!liveAudioContext || !base64Audio) return;
+    const pcm = base64ToPcm16(base64Audio);
+    const buffer = liveAudioContext.createBuffer(1, pcm.length, sampleRate);
+    const channel = buffer.getChannelData(0);
+    for (let i = 0; i < pcm.length; i++) channel[i] = pcm[i] / 32768;
+
+    const source = liveAudioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(liveAudioContext.destination);
+    const startAt = Math.max(liveAudioContext.currentTime + 0.03, livePlaybackCursor);
+    livePlaybackCursor = startAt + buffer.duration;
+    livePlaybackSources.add(source);
+    source.onended = () => livePlaybackSources.delete(source);
+    source.start(startAt);
+    setState("speaking", "Riya is speaking");
+}
+
+function updateLiveTranscriptDisplay(text, speaker) {
+    const caption = $("#captionBox");
+    if (caption && text) caption.textContent = text;
+    if (speaker === "riya" && text) {
+        const question = $("#questionText");
+        if (question) question.textContent = text;
+        currentQuestion = text;
+    }
+}
+
+function commitLiveTurn() {
+    const userText = liveUserTranscript.trim();
+    const assistantText = liveAssistantTranscript.trim();
+
+    if (userText) interviewHistory.push({ role: "user", content: userText });
+    if (assistantText) {
+        interviewHistory.push({ role: "assistant", content: assistantText });
+        updateInterviewDisplay(assistantText, "LIVE INTERVIEW");
+    }
+
+    const normalized = userText.toLowerCase();
+    const shouldEnd = [
+        "end the interview", "stop the interview", "finish the interview",
+        "i am done", "i'm done", "i am finished", "i'm finished",
+        "that's all", "that is all", "no more questions", "i want to stop"
+    ].some(phrase => normalized.includes(phrase));
+
+    liveUserTranscript = "";
+    liveAssistantTranscript = "";
+
+    if (liveTurnCompleteWaiter) {
+        liveTurnCompleteWaiter();
+        liveTurnCompleteWaiter = null;
+    }
+
+    if (shouldEnd && interviewActive && !endingInterview) {
+        finishInterview(true);
+    }
+}
+
+function liveSessionConfig(handle = null) {
+    return {
+        responseModalities: ["AUDIO"],
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        sessionResumption: handle ? { handle } : {},
+        contextWindowCompression: { slidingWindow: {} }
+    };
+}
+
+function liveSessionCallbacks(generation) {
+    return {
+        onmessage: handleLiveMessage,
+        onerror: event => {
+            console.error("Gemini Live error:", event);
+            if (!endingInterview) notify("The live voice connection encountered an error. Please try again.");
+        },
+        onclose: event => {
+            console.warn("Gemini Live closed:", event?.reason || "connection closed");
+            if (generation !== liveConnectionGeneration) return;
+            if (endingInterview || liveReconnectInProgress) return;
+            if (liveResumptionHandle) {
+                reconnectLiveSession();
+            } else if (interviewActive) {
+                setState("idle", "Voice connection closed");
+                notify("Riya's voice connection closed. Please end this session and try again.");
+            }
+        }
+    };
+}
+
+async function reconnectLiveSession() {
+    if (!liveAi || !liveResumptionHandle || liveReconnectPromise || endingInterview) return liveReconnectPromise;
+    const handle = liveResumptionHandle;
+    liveReconnectPromise = (async () => {
+        const previousSession = liveSession;
+        const generation = ++liveConnectionGeneration;
+        liveSession = null;
+        liveReconnectInProgress = true;
+        setState("thinking", "Reconnecting to Riya");
+        try {
+            if (previousSession) {
+                try { previousSession.close(); } catch {}
+            }
+            liveSession = await liveAi.live.connect({
+                model: liveModel,
+                config: liveSessionConfig(handle),
+                callbacks: liveSessionCallbacks(generation)
+            });
+            setState("listening", "Riya is listening");
+        } catch (error) {
+            console.error("Gemini Live resume failed:", error);
+            notify("Riya could not resume the voice connection. Please end this session and try again.");
+        } finally {
+            liveReconnectInProgress = false;
+            liveReconnectPromise = null;
+        }
+    })();
+    return liveReconnectPromise;
+}
+
+function handleLiveMessage(message) {
+    const resumeUpdate = message?.sessionResumptionUpdate || message?.session_resumption_update;
+    if (resumeUpdate?.resumable && resumeUpdate?.newHandle) {
+        liveResumptionHandle = resumeUpdate.newHandle;
+    }
+    const goAway = message?.goAway || message?.go_away;
+    if (goAway && liveResumptionHandle) {
+        reconnectLiveSession();
+    }
+
+    const serverContent = message?.serverContent;
+    if (!serverContent) return;
+
+    if (serverContent.interrupted) {
+        stopLivePlayback();
+        setState("listening", "Riya is listening");
+    }
+
+    const inputText = serverContent.inputTranscription?.text || "";
+    if (inputText) {
+        liveUserTranscript += inputText;
+        updateLiveTranscriptDisplay(liveUserTranscript, "applicant");
+    }
+
+    const outputText = serverContent.outputTranscription?.text || "";
+    if (outputText) {
+        liveAssistantTranscript += outputText;
+        updateLiveTranscriptDisplay(liveAssistantTranscript, "riya");
+    }
+
+    const parts = serverContent.modelTurn?.parts || [];
+    for (const part of parts) {
+        const inlineData = part.inlineData || part.inline_data;
+        const mimeType = inlineData?.mimeType || inlineData?.mime_type || "";
+        if (inlineData?.data && mimeType.includes("audio")) {
+            const rateMatch = mimeType.match(/rate=([0-9]+)/);
+            playLiveAudio(inlineData.data, rateMatch ? Number(rateMatch[1]) : 24000);
+        }
+    }
+
+    if (serverContent.turnComplete) {
+        commitLiveTurn();
+        if (interviewActive && !endingInterview) {
+            setState("listening", "Riya is listening");
+        }
+    }
+}
+
+async function closeLiveVoiceSession() {
+    if (liveAudioProcessor) {
+        liveAudioProcessor.onaudioprocess = null;
+        try { liveAudioProcessor.disconnect(); } catch {}
+        liveAudioProcessor = null;
+    }
+    if (liveMediaStream) {
+        liveMediaStream.getTracks().forEach(track => track.stop());
+        liveMediaStream = null;
+    }
+    stopLivePlayback();
+    if (liveSession) {
+        try { liveSession.close(); } catch {}
+        liveSession = null;
+    }
+    if (liveAudioContext) {
+        try { await liveAudioContext.close(); } catch {}
+        liveAudioContext = null;
+    }
+    liveAi = null;
+    liveToken = null;
+    liveModel = null;
+    liveResumptionHandle = null;
+    liveReconnectPromise = null;
+    liveReconnectInProgress = false;
+    liveConnectionGeneration += 1;
+    liveMuted = false;
+    $("#micButton")?.classList.remove("recording");
+    const micLabel = $("#micLabel");
+    if (micLabel) micLabel.textContent = "Microphone";
+}
+
+async function startLiveVoiceSession() {
     requestInProgress = true;
-    setState("thinking", "Riya is preparing your interview");
+    setState("thinking", "Connecting to Riya's live voice");
 
     try {
-        const result = await backendRequest(
-            "/api/interview/chat",
-            {
-                visa_type: visa,
-                user_message: "",
-                history: [],
-                profile: extractedProfile,
-                start_interview: true,
-                end_interview: false
+        if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error("Microphone access requires a secure HTTPS connection. Open Riya in Chrome and allow microphone access.");
+        }
+
+        liveMediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
             }
-        );
-
-        if (!result.assistant_message) {
-            throw new Error("Riya did not return an opening message.");
-        }
-
-        if (interviewTimeExpired) {
-            requestInProgress = false;
-            await finishInterview(true);
-            return;
-        }
-
-        interviewHistory.push({
-            role: "assistant",
-            content: result.assistant_message
         });
 
-        updateInterviewDisplay(
-            result.assistant_message,
-            result.topic
-        );
+        const tokenResult = await backendRequest("/api/live/token", {
+            visa_type: visa,
+            profile: extractedProfile
+        });
+        if (!tokenResult.token) throw new Error("The backend did not return a Live API token.");
+
+        const { GoogleGenAI } = await loadGeminiLiveSdk();
+        liveToken = tokenResult.token;
+        liveModel = tokenResult.model;
+        liveAi = new GoogleGenAI({
+            apiKey: liveToken,
+            httpOptions: { apiVersion: "v1alpha" }
+        });
+
+        liveAudioContext = new AudioContext({ sampleRate: 16000 });
+        await liveAudioContext.resume();
+
+        const generation = ++liveConnectionGeneration;
+        liveSession = await liveAi.live.connect({
+            model: liveModel,
+            config: liveSessionConfig(),
+            callbacks: liveSessionCallbacks(generation)
+        });
+
+        const audioSource = liveAudioContext.createMediaStreamSource(liveMediaStream);
+        liveAudioProcessor = liveAudioContext.createScriptProcessor(1024, 1, 1);
+        liveAudioProcessor.onaudioprocess = event => {
+            event.outputBuffer.getChannelData(0).fill(0);
+            if (!liveSession || endingInterview || liveMuted) return;
+            const input = event.inputBuffer.getChannelData(0);
+            let samples = input;
+            if (liveAudioContext.sampleRate !== 16000) {
+                const ratio = liveAudioContext.sampleRate / 16000;
+                const length = Math.floor(input.length / ratio);
+                samples = new Float32Array(length);
+                for (let i = 0; i < length; i++) samples[i] = input[Math.floor(i * ratio)];
+            }
+            const pcm = floatToPcm16(samples);
+            try {
+                liveSession.sendRealtimeInput({
+                    audio: {
+                        data: pcm16ToBase64(pcm),
+                        mimeType: "audio/pcm;rate=16000"
+                    }
+                });
+            } catch (error) {
+                console.error("Live audio send failed:", error);
+            }
+        };
+        audioSource.connect(liveAudioProcessor);
+        liveAudioProcessor.connect(liveAudioContext.destination);
 
         requestInProgress = false;
+        setState("listening", "Riya is listening");
+        const micLabel = $("#micLabel");
+        if (micLabel) micLabel.textContent = "Mute microphone";
+        $("#micButton")?.classList.add("recording");
 
-        speakRiya(result.assistant_message, true);
-
+        liveSession.sendClientContent({
+            turns: [{
+                role: "user",
+                parts: [{
+                    text: "Begin the mock visa interview now. Introduce yourself as Riya and ask the applicant what name they prefer to be called. Ask only that one question."
+                }]
+            }],
+            turnComplete: true
+        });
+        if (interviewTimeExpired) finishInterview(true);
     } catch (error) {
         requestInProgress = false;
-
-        if (interviewTimeExpired) {
-            await finishInterview(true);
-            return;
-        }
-
-        console.error("Starting Gemini interview failed:", error);
-
-        notify(error.message || "Could not start the AI interview.");
-
+        console.error("Live voice startup failed:", error);
+        await closeLiveVoiceSession();
+        interviewActive = false;
+        clearInterviewTimer();
+        interview?.classList.add("hidden");
+        setup?.classList.remove("hidden");
         setState("idle", "Riya is ready");
+        throw error;
     }
+}
+
+async function startGeminiConversation() {
+    await startLiveVoiceSession();
 }
 
 async function sendAnswerToGemini(answer) {
@@ -751,15 +1054,6 @@ function startInterviewTimer() {
         if (!interviewActive || endingInterview) return;
         if (requestInProgress) return;
 
-        if (recording && recognition) {
-            stopListening();
-            return;
-        }
-
-        if ("speechSynthesis" in window && window.speechSynthesis.speaking) {
-            return;
-        }
-
         finishInterview(true);
     }, interviewDurationMinutes * 60 * 1000);
 }
@@ -796,34 +1090,35 @@ async function finishInterview(sendEndRequest = true) {
     }
 
     try {
-        if (sendEndRequest) {
-            const endResult = await backendRequest(
-                "/api/interview/chat",
-                {
-                    visa_type: visa,
-                    user_message: "",
-                    history: interviewHistory,
-                    profile: extractedProfile,
-                    start_interview: false,
-                    end_interview: true
+        if (sendEndRequest && liveSession) {
+            await new Promise(resolve => {
+                let settled = false;
+                const complete = () => {
+                    if (settled) return;
+                    settled = true;
+                    resolve();
+                };
+                liveTurnCompleteWaiter = complete;
+                try {
+                    liveSession.sendClientContent({
+                        turns: [{
+                            role: "user",
+                            parts: [{ text: "Please conclude the mock interview now. Thank the applicant and say you will prepare their feedback." }]
+                        }],
+                        turnComplete: true
+                    });
+                } catch {
+                    complete();
                 }
-            );
-
-            if (endResult.assistant_message) {
-                // The end message is not an applicant answer and is
-                // intentionally not included in feedback history.
-                speakRiya(endResult.assistant_message, false);
-
-                await new Promise(resolve => {
-                    setTimeout(resolve, 2500);
-                });
-
-                stopRiyaSpeaking();
-            }
+                setTimeout(complete, 8000);
+            });
+            await new Promise(resolve => setTimeout(resolve, 900));
         }
 
+        await closeLiveVoiceSession();
+
         if (!interviewHistory.length) {
-            throw new Error("There is no interview conversation to evaluate.");
+            throw new Error("Riya could not capture a transcript for this session. Please check microphone permission and try again.");
         }
 
         const result = await backendRequest(
@@ -1054,8 +1349,6 @@ function showInterview() {
             "Speak naturally. Riya will ask follow-up questions based on your answers.";
     }
 
-    setupVoiceSelector();
-
     const nextButton = $("#nextQuestion");
     if (nextButton) nextButton.classList.add("hidden");
 
@@ -1070,7 +1363,7 @@ function showInterview() {
     const progressText = $("#progressText");
     if (progressText) progressText.textContent = "Your interview has started";
 
-    startGeminiConversation();
+    return startGeminiConversation();
 }
 
 function showComplete() {
@@ -1361,7 +1654,7 @@ async function startInterview(profile = {}) {
     extractedProfile = { ...profile };
     interviewDurationMinutes = Number(result.session_duration_minutes) || 15;
 
-    showInterview();
+    await showInterview();
 
     notify("Riya is starting your interview.");
 }
@@ -1454,13 +1747,15 @@ addClick("#backToSetup", () => {
 // ==================================================
 
 addClick("#micButton", () => {
-    if (!interviewActive || endingInterview) return;
-
-    if (recording) {
-        stopListening();
-    } else if (!requestInProgress) {
-        startListening();
-    }
+    if (!interviewActive || endingInterview || !liveMediaStream) return;
+    liveMuted = !liveMuted;
+    liveMediaStream.getAudioTracks().forEach(track => {
+        track.enabled = !liveMuted;
+    });
+    const micLabel = $("#micLabel");
+    if (micLabel) micLabel.textContent = liveMuted ? "Unmute microphone" : "Mute microphone";
+    setState(liveMuted ? "idle" : "listening", liveMuted ? "Microphone muted" : "Riya is listening");
+    $("#micButton")?.classList.toggle("recording", !liveMuted);
 });
 
 // ==================================================
@@ -1468,22 +1763,11 @@ addClick("#micButton", () => {
 // ==================================================
 
 addClick("#repeatButton", () => {
-    if (recording) {
-        if (recognition) {
-            recognition.onend = null;
-
-            try {
-                recognition.abort();
-            } catch {}
-
-            recognition = null;
-        }
-
-        recording = false;
-    }
-
-    if (currentQuestion && interviewActive) {
-        speakRiya(currentQuestion, true);
+    if (currentQuestion && interviewActive && liveSession) {
+        liveSession.sendClientContent({
+            turns: [{ role: "user", parts: [{ text: "Please repeat your last question." }] }],
+            turnComplete: true
+        });
     }
 });
 
@@ -1576,9 +1860,7 @@ setTimeout(() => {
 // INITIALIZATION
 // ==================================================
 
-setupVoiceSelector();
-
-console.log("Riya AI dynamic frontend initialized.");
+console.log("Riya AI live voice frontend initialized.");
 
 console.log("Browser speech recognition:", !!SpeechRecognition);
 console.log("Browser speech synthesis:", !!window.speechSynthesis);
