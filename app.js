@@ -1551,7 +1551,7 @@ setTimeout(() => {
 // INITIALIZATION
 // ==================================================
 
-console.log("Riya AI Gemini Realtime voice frontend initialized.");
+console.log("Riya AI Gemini text and browser voice frontend initialized.");
 
 console.log("Browser speech recognition:", !!SpeechRecognition);
 console.log("Browser speech synthesis:", !!window.speechSynthesis);
