@@ -1501,6 +1501,7 @@ addClick("#riyaMuteButton", () => {
     if (riyaMuted) {
         stopRiyaSpeaking();
         setState("idle", "Riya's voice is muted");
+        if (!microphoneMuted && !requestInProgress) startListening();
     } else if (currentQuestion) {
         speakRiya(currentQuestion, true);
     }
@@ -1641,14 +1642,6 @@ $$("[data-home]").forEach(button => {
 
 $$("[data-start]").forEach(button => {
     button.addEventListener("click", openApp);
-});
-
-// ==================================================
-// MENU BUTTON
-// ==================================================
-
-addClick("#menuButton", () => {
-    notify("Use the page sections below to explore Riya.");
 });
 
 // ==================================================
