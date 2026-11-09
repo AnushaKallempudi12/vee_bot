@@ -845,17 +845,22 @@ async def preview_document_profile(
             extracted_text = "\n".join(
                 page.get_text("text") for page in document
             )
-
-            profile = extract_profile(extracted_text)
+            has_selectable_text = bool(extracted_text.strip())
+            profile = extract_profile(extracted_text) if has_selectable_text else {}
 
             del extracted_text
 
             return {
                 "status": "success",
-                "message": "Preliminary profile extraction completed.",
+                "message": (
+                    "Preliminary profile extraction completed."
+                    if has_selectable_text
+                    else "No selectable text was found. This may be a scanned PDF; you can still continue without extracted document details."
+                ),
                 "visa_type": visa_type,
                 "profile": profile,
                 "review_required": True,
+                "document_text_available": has_selectable_text,
                 "stored_permanently": False,
                 "sent_to_ai": False,
                 "extraction_method": "allowlisted_text_matching",
