@@ -387,10 +387,6 @@ function speakRiya(text, listenAfterSpeaking = true) {
 }
 
 // Load browser voices when they become available.
-if ("speechSynthesis" in window) {
-    window.speechSynthesis.onvoiceschanged = setupVoiceSelector;
-}
-
 // ==================================================
 // SPEECH RECOGNITION
 // ==================================================
@@ -820,8 +816,17 @@ async function startLiveVoiceSession() {
         const audioSource = liveAudioContext.createMediaStreamSource(liveMediaStream);
         liveAudioProcessor = liveAudioContext.createScriptProcessor(4096, 1, 1);
         liveAudioProcessor.onaudioprocess = event => {
+            event.outputBuffer.getChannelData(0).fill(0);
             if (!liveSession || endingInterview || liveMuted) return;
-            const pcm = floatToPcm16(event.inputBuffer.getChannelData(0));
+            const input = event.inputBuffer.getChannelData(0);
+            let samples = input;
+            if (liveAudioContext.sampleRate !== 16000) {
+                const ratio = liveAudioContext.sampleRate / 16000;
+                const length = Math.floor(input.length / ratio);
+                samples = new Float32Array(length);
+                for (let i = 0; i < length; i++) samples[i] = input[Math.floor(i * ratio)];
+            }
+            const pcm = floatToPcm16(samples);
             try {
                 liveSession.sendRealtimeInput({
                     audio: {
@@ -851,6 +856,7 @@ async function startLiveVoiceSession() {
             }],
             turnComplete: true
         });
+        if (interviewTimeExpired) finishInterview(true);
     } catch (error) {
         requestInProgress = false;
         console.error("Live voice startup failed:", error);
@@ -973,15 +979,6 @@ function startInterviewTimer() {
         if (!interviewActive || endingInterview) return;
         if (requestInProgress) return;
 
-        if (recording && recognition) {
-            stopListening();
-            return;
-        }
-
-        if ("speechSynthesis" in window && window.speechSynthesis.speaking) {
-            return;
-        }
-
         finishInterview(true);
     }, interviewDurationMinutes * 60 * 1000);
 }
@@ -1018,34 +1015,35 @@ async function finishInterview(sendEndRequest = true) {
     }
 
     try {
-        if (sendEndRequest) {
-            const endResult = await backendRequest(
-                "/api/interview/chat",
-                {
-                    visa_type: visa,
-                    user_message: "",
-                    history: interviewHistory,
-                    profile: extractedProfile,
-                    start_interview: false,
-                    end_interview: true
+        if (sendEndRequest && liveSession) {
+            await new Promise(resolve => {
+                let settled = false;
+                const complete = () => {
+                    if (settled) return;
+                    settled = true;
+                    resolve();
+                };
+                liveTurnCompleteWaiter = complete;
+                try {
+                    liveSession.sendClientContent({
+                        turns: [{
+                            role: "user",
+                            parts: [{ text: "Please conclude the mock interview now. Thank the applicant and say you will prepare their feedback." }]
+                        }],
+                        turnComplete: true
+                    });
+                } catch {
+                    complete();
                 }
-            );
-
-            if (endResult.assistant_message) {
-                // The end message is not an applicant answer and is
-                // intentionally not included in feedback history.
-                speakRiya(endResult.assistant_message, false);
-
-                await new Promise(resolve => {
-                    setTimeout(resolve, 2500);
-                });
-
-                stopRiyaSpeaking();
-            }
+                setTimeout(complete, 8000);
+            });
+            await new Promise(resolve => setTimeout(resolve, 900));
         }
 
+        await closeLiveVoiceSession();
+
         if (!interviewHistory.length) {
-            throw new Error("There is no interview conversation to evaluate.");
+            throw new Error("Riya could not capture a transcript for this session. Please check microphone permission and try again.");
         }
 
         const result = await backendRequest(
@@ -1275,8 +1273,6 @@ function showInterview() {
         interviewSub.textContent =
             "Speak naturally. Riya will ask follow-up questions based on your answers.";
     }
-
-    setupVoiceSelector();
 
     const nextButton = $("#nextQuestion");
     if (nextButton) nextButton.classList.add("hidden");
@@ -1676,13 +1672,15 @@ addClick("#backToSetup", () => {
 // ==================================================
 
 addClick("#micButton", () => {
-    if (!interviewActive || endingInterview) return;
-
-    if (recording) {
-        stopListening();
-    } else if (!requestInProgress) {
-        startListening();
-    }
+    if (!interviewActive || endingInterview || !liveMediaStream) return;
+    liveMuted = !liveMuted;
+    liveMediaStream.getAudioTracks().forEach(track => {
+        track.enabled = !liveMuted;
+    });
+    const micLabel = $("#micLabel");
+    if (micLabel) micLabel.textContent = liveMuted ? "Unmute microphone" : "Mute microphone";
+    setState(liveMuted ? "idle" : "listening", liveMuted ? "Microphone muted" : "Riya is listening");
+    $("#micButton")?.classList.toggle("recording", !liveMuted);
 });
 
 // ==================================================
@@ -1690,22 +1688,11 @@ addClick("#micButton", () => {
 // ==================================================
 
 addClick("#repeatButton", () => {
-    if (recording) {
-        if (recognition) {
-            recognition.onend = null;
-
-            try {
-                recognition.abort();
-            } catch {}
-
-            recognition = null;
-        }
-
-        recording = false;
-    }
-
-    if (currentQuestion && interviewActive) {
-        speakRiya(currentQuestion, true);
+    if (currentQuestion && interviewActive && liveSession) {
+        liveSession.sendClientContent({
+            turns: [{ role: "user", parts: [{ text: "Please repeat your last question." }] }],
+            turnComplete: true
+        });
     }
 });
 
@@ -1798,9 +1785,7 @@ setTimeout(() => {
 // INITIALIZATION
 // ==================================================
 
-setupVoiceSelector();
-
-console.log("Riya AI dynamic frontend initialized.");
+console.log("Riya AI live voice frontend initialized.");
 
 console.log("Browser speech recognition:", !!SpeechRecognition);
 console.log("Browser speech synthesis:", !!window.speechSynthesis);
