@@ -597,9 +597,10 @@ async def interview_chat(request: InterviewChatRequest):
 
     if request.start_interview:
         if safe_profile.get("applicant_name"):
+            applicant_first_name = safe_profile["applicant_name"].strip().split()[0]
             current_message = (
                 "Start the mock interview now. Introduce yourself as Riya, "
-                "greet the applicant as " + safe_profile["applicant_name"] + ", "
+                "greet the applicant as " + applicant_first_name + ", "
                 "and ask ONE specific opening question grounded in an extracted "
                 "detail from the reviewed " + safe_profile.get("document_type", "uploaded") +
                 " document. Do not ask the applicant to repeat their name. "
@@ -886,7 +887,13 @@ async def preview_document_profile(
             profile = extract_profile(extracted_text) if has_selectable_text else {}
             visa_detection = detect_visa_category(extracted_text, profile.get("document_type")) if has_selectable_text else {"detected_visa_type": None, "visa_detection_confidence": "unknown"}
             detected_visa = visa_detection.get("detected_visa_type")
-            visa_match = "match" if detected_visa == visa_type else "mismatch" if detected_visa else "unconfirmed"
+            visa_match = (
+                "match" if detected_visa == visa_type
+                else "mismatch" if detected_visa is not None
+                else "unconfirmed"
+            )
+            if detected_visa:
+                profile["document_visa_type"] = detected_visa
 
             del extracted_text
 

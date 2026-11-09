@@ -1091,6 +1091,10 @@ function showInterview() {
     microphoneMuted = false;
     riyaMuted = false;
     updateMuteButtons();
+    setupVoiceSelector();
+    if ("speechSynthesis" in window) {
+        window.speechSynthesis.onvoiceschanged = () => setupVoiceSelector();
+    }
     requestInProgress = false;
     const micButton = $("#micButton");
     if (micButton) micButton.disabled = true;
@@ -1355,8 +1359,11 @@ function showProfileReview(profileData) {
 
     updateStep("02", "04");
 
-    const mismatch = profileData.visa_match === "mismatch";
     const detectedVisa = profileData.detected_visa_type;
+    // Recompute locally as a safeguard against stale/mislabelled API responses.
+    const mismatch = Boolean(detectedVisa && detectedVisa !== visa);
+    const confirmedMatch = Boolean(detectedVisa && detectedVisa === visa && profileData.visa_match === "match");
+    const unconfirmed = !detectedVisa || profileData.visa_match !== "match" && !mismatch;
     let visaNotice = $("#visaMismatchNotice");
     if (!visaNotice) {
         visaNotice = document.createElement("div");
@@ -1395,12 +1402,12 @@ function showProfileReview(profileData) {
             });
             actions.append(switchButton, uploadButton);
             visaNotice.append(message, actions);
-        } else if (profileData.visa_match === "unconfirmed") {
+        } else if (unconfirmed) {
             visaNotice.className = "profile-review-notice";
-            visaNotice.textContent = "We could not reliably identify the exact visa category in this PDF. Please make sure the selected visa matches your document before continuing.";
-        } else {
+            visaNotice.textContent = "We could not verify the visa category from this PDF. We will not mark it as a match. Please confirm that the selected " + visa + " category is the one shown on your document before continuing.";
+        } else if (confirmedMatch) {
             visaNotice.className = "profile-review-notice";
-            visaNotice.textContent = "The document category matches your selected visa. Review the details Riya will use for your practice.";
+            visaNotice.textContent = "Verified: this PDF identifies " + detectedVisa + ", matching your selected visa category.";
         }
     }
     const confirmButton = $("#confirmProfile");
@@ -1480,7 +1487,13 @@ async function startInterview(profile = {}) {
     }
 
     extractedProfile = { ...profile };
-    if (prep === "document" && documentVisaType) extractedProfile.document_visa_type = documentVisaType;
+    if (prep === "document") {
+        // Never start a document-based session if the selected category differs.
+        if (documentVisaType && documentVisaType !== visa) {
+            throw new Error("Visa mismatch: your selected " + visa + " category does not match this PDF (" + documentVisaType + "). Please switch the visa or upload the correct PDF.");
+        }
+        if (documentVisaType) extractedProfile.document_visa_type = documentVisaType;
+    }
     interviewDurationMinutes = Number(result.session_duration_minutes) || 15;
 
     await showInterview();

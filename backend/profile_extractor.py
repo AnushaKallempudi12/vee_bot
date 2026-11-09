@@ -163,8 +163,18 @@ def extract_profile(text: str) -> dict:
 
         if normalized_label in NAME_LABELS:
             value = clean_candidate(inline_candidate, allow_name=True) if inline_candidate else None
+            if value and normalize_label(value) in {
+                "first name", "given name", "given names", "family name",
+                "primary name", "surname", "last name"
+            }:
+                value = None
             if not value:
                 value = _next_value(lines, index)
+            if value and normalize_label(value) in {
+                "first name", "given name", "given names", "family name",
+                "primary name", "surname", "last name"
+            }:
+                value = None
             if value:
                 if normalized_label in {"surnames", "surname", "surname primary name", "surname family name"}:
                     name_parts["surname"] = value
@@ -185,5 +195,9 @@ def extract_profile(text: str) -> dict:
         profile["applicant_name"] = " ".join(
             part for part in (name_parts.get("given"), name_parts.get("surname")) if part
         )
+
+    # Preserve the full reviewed name; the interview greeting uses its first token.
+    if profile.get("applicant_name"):
+        profile["applicant_name"] = re.sub(r"\s+", " ", profile["applicant_name"]).strip()
 
     return profile
