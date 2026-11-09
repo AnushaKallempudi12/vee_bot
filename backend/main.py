@@ -32,6 +32,17 @@ gemini_client = (
     else None
 )
 
+# Ephemeral token creation is available through the Gemini Developer API v1alpha.
+# Keep this separate so regular generate_content calls retain their default API version.
+live_token_client = (
+    genai.Client(
+        api_key=GEMINI_API_KEY,
+        http_options=types.HttpOptions(api_version="v1alpha")
+    )
+    if GEMINI_API_KEY
+    else None
+)
+
 app = FastAPI(
     title="Riya AI API",
     description="Backend services for Riya AI visa interview practice",
@@ -541,7 +552,7 @@ LIVE VOICE CONVERSATION:
 
     try:
         now = datetime.now(timezone.utc)
-        token = gemini_client.auth_tokens.create(
+        token = live_token_client.auth_tokens.create(
             config={
                 "uses": 1,
                 "expire_time": now + timedelta(minutes=SESSION_DURATION_MINUTES + 10),
