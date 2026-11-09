@@ -6,7 +6,7 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-const BACKEND_URL = "https://veebot-production.up.railway.app";
+const BACKEND_URL = "https://riya-ai-backend-production.up.railway.app";
 
 // ==================================================
 // HTML ELEMENTS
