@@ -1273,6 +1273,11 @@ function showProfileReview(profileData) {
         "hidden",
         entries.length > 0
     );
+    if (entries.length === 0) {
+        profileEmptyMessage.textContent = profileData.document_text_available === false
+            ? "This PDF appears to be scanned or image-only, so its text could not be read. You can still continue with a normal interview; Riya just won't have document details to refer to."
+            : "No supported details were identified. You can still continue with a normal interview, or go back and choose another preparation method.";
+    }
 
     entries.forEach(([key, value]) => {
         const wrapper = document.createElement("div");
