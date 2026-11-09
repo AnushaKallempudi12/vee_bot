@@ -300,3 +300,40 @@
  .hero .floater-pin,.hero .floater-chat{display:none}
 }
 @media(prefers-reduced-motion:reduce){.hero .visa-floater{animation:none!important}}
+
+
+/* Homepage concept: refined holographic Riya (interview-room robot intentionally unchanged) */
+.holo-stage{position:relative;width:360px;height:430px;display:flex;align-items:center;justify-content:center;isolation:isolate;z-index:1}
+.holo-aura{position:absolute;width:270px;height:270px;border-radius:50%;background:radial-gradient(circle,rgba(176,133,255,.35),rgba(119,75,202,.12) 42%,transparent 72%);filter:blur(15px);animation:holo-aura-pulse 4.8s ease-in-out infinite}
+.holo-ring{position:absolute;border:1px solid rgba(206,180,255,.34);border-radius:50%;transform:rotate(-24deg);box-shadow:0 0 18px rgba(177,137,255,.13),inset 0 0 16px rgba(177,137,255,.06)}
+.holo-ring-one{width:310px;height:112px;animation:holo-orbit 13s linear infinite}
+.holo-ring-two{width:265px;height:180px;transform:rotate(62deg);border-color:rgba(156,205,255,.22);animation:holo-orbit-reverse 17s linear infinite}
+.holo-orb{position:relative;width:184px;height:184px;border-radius:50%;background:radial-gradient(circle at 32% 25%,#fff 0%,#e9ddff 5%,#b99af4 20%,#7954c5 48%,#34205f 76%,#17102f 100%);box-shadow:inset -20px -24px 38px rgba(13,7,34,.65),inset 12px 10px 24px rgba(255,255,255,.7),0 0 35px rgba(177,134,255,.65),0 0 95px rgba(126,83,219,.34);animation:holo-hover 5.2s ease-in-out infinite;z-index:2}
+.holo-glass{position:absolute;inset:9px;border-radius:50%;border:1px solid rgba(255,255,255,.48);background:radial-gradient(ellipse at 28% 20%,rgba(255,255,255,.26),transparent 44%);box-shadow:inset 0 0 24px rgba(255,255,255,.12)}
+.holo-face{position:absolute;left:50%;top:50%;width:94px;height:65px;transform:translate(-50%,-42%);border-radius:48%;background:rgba(31,19,61,.66);border:1px solid rgba(239,226,255,.38);display:flex;align-items:center;justify-content:center;gap:25px;box-shadow:0 0 22px rgba(31,12,72,.3),inset 0 0 15px rgba(9,4,25,.35)}
+.holo-eye{width:9px;height:13px;border-radius:50%;background:#fff;box-shadow:0 0 12px #fff,0 0 22px #d8c5ff;animation:holo-blink 5.8s infinite}
+.holo-mouth{position:absolute;left:50%;top:42px;width:12px;height:6px;transform:translateX(-50%);border-bottom:2px solid #f8eaff;border-radius:50%;animation:holo-talk 1.1s ease-in-out infinite alternate}
+.holo-shine{position:absolute;width:72px;height:20px;left:25px;top:26px;border-radius:50%;background:rgba(255,255,255,.7);filter:blur(13px);transform:rotate(-32deg)}
+.holo-signal{position:absolute;inset:-13px;border:1px solid rgba(218,197,255,.24);border-radius:50%;animation:holo-signal 3s ease-out infinite}
+.holo-base{position:absolute;bottom:62px;width:150px;height:26px;border-radius:50%;background:radial-gradient(ellipse,rgba(190,158,255,.35),rgba(113,74,188,.12) 48%,transparent 72%);filter:blur(2px);display:flex;align-items:center;justify-content:center;gap:7px}
+.holo-base span{width:4px;height:4px;border-radius:50%;background:#d9c4ff;box-shadow:0 0 9px #c6a7ff}
+.holo-base span:nth-child(2){width:78px;height:2px;border-radius:50%;opacity:.7}
+.holo-particles{position:absolute;inset:25px;pointer-events:none}
+.holo-particles i{position:absolute;width:4px;height:4px;border-radius:50%;background:#e9ddff;box-shadow:0 0 10px 2px rgba(194,160,255,.8);animation:holo-particle 4.5s ease-in-out infinite}
+.holo-particles i:nth-child(1){left:8%;top:30%;animation-delay:-.5s}
+.holo-particles i:nth-child(2){right:8%;top:20%;animation-delay:-2s}
+.holo-particles i:nth-child(3){left:15%;bottom:18%;animation-delay:-3s}
+.holo-particles i:nth-child(4){right:12%;bottom:24%;animation-delay:-1.4s}
+.holo-particles i:nth-child(5){left:50%;top:4%;animation-delay:-2.7s}
+.holo-particles i:nth-child(6){left:50%;bottom:4%;animation-delay:-.9s}
+@keyframes holo-hover{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-13px) scale(1.025)}}
+@keyframes holo-aura-pulse{0%,100%{opacity:.55;transform:scale(.92)}50%{opacity:1;transform:scale(1.1)}}
+@keyframes holo-orbit{to{transform:rotate(336deg)}}
+@keyframes holo-orbit-reverse{to{transform:rotate(-298deg)}}
+@keyframes holo-signal{0%{transform:scale(.92);opacity:.6}100%{transform:scale(1.22);opacity:0}}
+@keyframes holo-blink{0%,45%,48%,100%{transform:scaleY(1)}46%,47%{transform:scaleY(.12)}}
+@keyframes holo-talk{from{width:8px;height:3px}to{width:16px;height:8px}}
+@keyframes holo-particle{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-13px);opacity:1}}
+@media(max-width:900px){.holo-stage{transform:scale(.88)}}
+@media(max-width:650px){.holo-stage{height:390px;transform:scale(.82);transform-origin:top center;margin-bottom:-35px}}
+@media(prefers-reduced-motion:reduce){.holo-stage *{animation:none!important}}
