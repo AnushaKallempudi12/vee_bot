@@ -3,6 +3,9 @@ import re
 import json
 import asyncio
 import time
+import base64
+import io
+import wave
 import fitz
 import httpx
 from dotenv import load_dotenv
@@ -21,6 +24,7 @@ from profile_extractor import extract_profile, detect_visa_category
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_TTS_MODEL = os.getenv("GEMINI_TTS_MODEL", "gemini-3.1-flash-tts-preview")
 GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "gemini-3.5-flash-lite").strip()
 GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash").strip()
 GEMINI_MODEL_TIMEOUT_SECONDS = max(8, min(35, int(os.getenv("GEMINI_MODEL_TIMEOUT_SECONDS", "20"))))
@@ -62,6 +66,11 @@ VISA_TYPES = Literal["F1", "F2", "B1/B2", "H1B", "H4"]
 # --------------------------------------------------
 # DATA MODELS
 # --------------------------------------------------
+
+class SpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=1200)
+    language: Literal["Telugu"] = "Telugu"
+
 
 class InterviewSetup(BaseModel):
     visa_type: VISA_TYPES
@@ -556,6 +565,7 @@ def health_check():
         "gemini_configured": bool(GEMINI_API_KEY),
         "text_model": GEMINI_TEXT_MODEL,
         "fallback_model": GEMINI_FALLBACK_MODEL,
+        "tts_model": GEMINI_TTS_MODEL,
         "model_timeout_seconds": GEMINI_MODEL_TIMEOUT_SECONDS,
         "voice_mode": "browser_speech_recognition_and_synthesis",
         "session_duration_minutes": SESSION_DURATION_MINUTES
@@ -587,7 +597,90 @@ def create_interview_setup(setup: InterviewSetup):
 
 
 # --------------------------------------------------
-# TEXT-BASED INTERVIEW CHAT (VOICE HANDLED BY THE BROWSER)
+# GEMINI TELUGU TEXT-TO-SPEECH
+# --------------------------------------------------
+
+@app.post("/api/interview/speech")
+async def interview_speech(request: SpeechRequest):
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=503, detail="Gemini is not configured.")
+
+    spoken_text = request.text.strip()
+    if not spoken_text:
+        raise HTTPException(status_code=400, detail="Speech text is required.")
+
+    tts_prompt = (
+        "Speak in a warm, clear, professional Telugu (India) voice. "
+        "Read the following Telugu interview line exactly as written. "
+        "Do not translate it, summarize it, or add any words. "
+        "Transcript to speak:\n" + spoken_text
+    )
+    endpoint = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{GEMINI_TTS_MODEL}:generateContent"
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=35) as client:
+            response = await client.post(
+                endpoint,
+                headers={"x-goog-api-key": GEMINI_API_KEY},
+                json={
+                    "contents": [{"parts": [{"text": tts_prompt}]}],
+                    "generationConfig": {
+                        "responseModalities": ["AUDIO"],
+                        "speechConfig": {
+                            "voiceConfig": {
+                                "prebuiltVoiceConfig": {"voiceName": "Kore"}
+                            }
+                        }
+                    }
+                }
+            )
+    except (asyncio.TimeoutError, httpx.TimeoutException):
+        raise HTTPException(status_code=504, detail="Telugu speech generation timed out.")
+    except httpx.HTTPError as error:
+        print(f"Gemini TTS request failed: {error}", flush=True)
+        raise HTTPException(status_code=502, detail="Telugu speech service is temporarily unavailable.")
+
+    if not response.is_success:
+        print(
+            f"GEMINI TTS ERROR: model={GEMINI_TTS_MODEL}, "
+            f"status={response.status_code}, body={response.text[:1200]}",
+            flush=True
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Telugu speech generation failed. Check the configured Gemini TTS model and API access."
+        )
+
+    try:
+        payload = response.json()
+        audio_part = next(
+            part
+            for part in payload["candidates"][0]["content"]["parts"]
+            if part.get("inlineData", {}).get("data")
+        )
+        pcm_audio = base64.b64decode(audio_part["inlineData"]["data"])
+        wav_buffer = io.BytesIO()
+        with wave.open(wav_buffer, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(24000)
+            wav_file.writeframes(pcm_audio)
+
+        return {
+            "audio_base64": base64.b64encode(wav_buffer.getvalue()).decode("ascii"),
+            "mime_type": "audio/wav",
+            "language": "Telugu"
+        }
+    except (KeyError, IndexError, StopIteration, ValueError, wave.Error) as error:
+        print(f"Gemini TTS response parsing failed: {error}", flush=True)
+        raise HTTPException(status_code=502, detail="Gemini returned an invalid Telugu audio response.")
+
+
+# --------------------------------------------------
+# TEXT-BASED INTERVIEW CHAT
 # --------------------------------------------------
 
 @app.post("/api/interview/chat")
