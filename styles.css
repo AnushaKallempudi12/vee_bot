@@ -583,3 +583,87 @@
  .hero .floater-document,.hero .floater-study,.hero .floater-briefcase{display:none!important}
 }
 @media(prefers-reduced-motion:reduce){.hero .visa-floater{animation:none!important;opacity:.2}}
+
+
+/* Riya ambient orbital motion — inspired by LifeSync's orbital nodes, not its dashboard */
+.hero .visa-floaters{
+  position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;
+  perspective:900px;
+}
+.hero .visa-floaters::before,
+.hero .visa-floaters::after{
+  content:"";position:absolute;left:50%;top:51%;border:1px dashed rgba(174,148,226,.17);
+  border-radius:50%;pointer-events:none;transform:translate(-50%,-50%) rotate(-13deg);
+}
+.hero .visa-floaters::before{width:min(92%,1040px);height:78%;animation:riya-orbit-ring 48s linear infinite}
+.hero .visa-floaters::after{width:min(74%,820px);height:58%;border-color:rgba(129,160,225,.13);transform:translate(-50%,-50%) rotate(22deg);animation:riya-orbit-ring-reverse 62s linear infinite}
+@keyframes riya-orbit-ring{to{transform:translate(-50%,-50%) rotate(347deg)}}
+@keyframes riya-orbit-ring-reverse{to{transform:translate(-50%,-50%) rotate(382deg)}}
+.hero .visa-floater{
+  position:absolute!important;display:grid;place-items:center;
+  width:clamp(34px,3.2vw,46px);height:clamp(34px,3.2vw,46px);
+  border:1px solid rgba(183,161,231,.35);border-radius:15px;
+  background:linear-gradient(145deg,rgba(113,91,163,.25),rgba(87,119,177,.20));
+  color:#e4ddf5;font-size:clamp(17px,1.55vw,21px);line-height:1;
+  opacity:.76;filter:saturate(.78);
+  box-shadow:0 7px 22px rgba(25,22,49,.14),inset 0 1px 0 rgba(255,255,255,.12);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  will-change:transform;animation-duration:18s;animation-timing-function:ease-in-out;
+  animation-iteration-count:infinite;animation-direction:alternate;
+}
+.hero .floater-passport{left:8%;top:24%;animation-name:riya-node-a;animation-duration:21s}
+.hero .floater-plane{left:22%;top:70%;animation-name:riya-node-b;animation-duration:17s}
+.hero .floater-globe{left:38%;top:15%;animation-name:riya-node-c;animation-duration:24s}
+.hero .floater-document{left:55%;top:77%;animation-name:riya-node-d;animation-duration:19s}
+.hero .floater-calendar{left:72%;top:18%;animation-name:riya-node-e;animation-duration:23s}
+.hero .floater-chat{left:88%;top:62%;animation-name:riya-node-a;animation-duration:26s}
+.hero .floater-check{left:11%;top:57%;animation-name:riya-node-c;animation-duration:20s}
+.hero .floater-luggage{left:34%;top:47%;animation-name:riya-node-e;animation-duration:22s}
+.hero .floater-pin{left:64%;top:48%;animation-name:riya-node-b;animation-duration:25s}
+.hero .floater-study{left:81%;top:39%;animation-name:riya-node-d;animation-duration:18s}
+.hero .floater-briefcase{left:48%;top:10%;animation-name:riya-node-a;animation-duration:27s}
+@keyframes riya-node-a{
+  0%,100%{transform:translate3d(0,0,0) rotate(-7deg)}
+  25%{transform:translate3d(34px,-23px,18px) rotate(3deg)}
+  50%{transform:translate3d(15px,31px,8px) rotate(10deg)}
+  75%{transform:translate3d(-28px,17px,-8px) rotate(-2deg)}
+}
+@keyframes riya-node-b{
+  0%,100%{transform:translate3d(0,0,0) rotate(6deg)}
+  25%{transform:translate3d(-35px,-19px,-10px) rotate(-7deg)}
+  50%{transform:translate3d(-8px,-48px,12px) rotate(-15deg)}
+  75%{transform:translate3d(31px,-18px,4px) rotate(2deg)}
+}
+@keyframes riya-node-c{
+  0%,100%{transform:translate3d(0,0,0) rotate(4deg)}
+  25%{transform:translate3d(25px,26px,8px) rotate(13deg)}
+  50%{transform:translate3d(48px,-7px,-12px) rotate(4deg)}
+  75%{transform:translate3d(12px,-34px,6px) rotate(-9deg)}
+}
+@keyframes riya-node-d{
+  0%,100%{transform:translate3d(0,0,0) rotate(-4deg)}
+  25%{transform:translate3d(-29px,27px,10px) rotate(7deg)}
+  50%{transform:translate3d(-48px,-8px,-8px) rotate(14deg)}
+  75%{transform:translate3d(-14px,-39px,5px) rotate(-5deg)}
+}
+@keyframes riya-node-e{
+  0%,100%{transform:translate3d(0,0,0) rotate(3deg)}
+  25%{transform:translate3d(39px,17px,-8px) rotate(11deg)}
+  50%{transform:translate3d(8px,46px,10px) rotate(-4deg)}
+  75%{transform:translate3d(-34px,13px,4px) rotate(-12deg)}
+}
+@media(max-width:900px){
+ .hero .visa-floaters::before{width:108%;height:68%}
+ .hero .visa-floaters::after{width:88%;height:50%}
+ .hero .visa-floater{opacity:.68}
+}
+@media(max-width:650px){
+ .hero .visa-floaters::before{width:130%;height:60%}
+ .hero .visa-floaters::after{width:105%;height:44%}
+ .hero .visa-floater{width:31px;height:31px;border-radius:11px;font-size:15px}
+ .hero .floater-document,.hero .floater-study,.hero .floater-briefcase{display:none!important}
+}
+@media(prefers-reduced-motion:reduce){
+ .hero .visa-floaters::before,.hero .visa-floaters::after,.hero .visa-floater{animation:none!important}
+ .hero .visa-floater{opacity:.45}
+}
