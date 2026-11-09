@@ -351,7 +351,7 @@ async def generate_gemini_response(input_items, instructions: str, response_mode
     else:
         output_contract = "Return one JSON object matching the requested response fields."
 
-    full_instruction = instructions + "\\n\\n" + output_contract
+    full_instruction = instructions + "\n\n" + output_contract
     models_to_try = [GEMINI_TEXT_MODEL]
     if GEMINI_FALLBACK_MODEL and GEMINI_FALLBACK_MODEL not in models_to_try:
         models_to_try.append(GEMINI_FALLBACK_MODEL)
