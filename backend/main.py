@@ -21,8 +21,8 @@ from profile_extractor import extract_profile
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "gemini-3.5-flash-lite").strip()
-GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.8-flash").strip()
+GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "gemini-2.5-flash").strip()
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash-lite").strip()
 GEMINI_MODEL_TIMEOUT_SECONDS = max(8, min(35, int(os.getenv("GEMINI_MODEL_TIMEOUT_SECONDS", "20"))))
 
 app = FastAPI(
