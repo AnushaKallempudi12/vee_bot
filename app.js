@@ -357,17 +357,28 @@ function speakRiya(text, listenAfterSpeaking = true) {
 
     const utterance = new SpeechSynthesisUtterance(text);
 
+    const targetLocale = language === "Telugu" ? "te-IN" : "en-US";
+    const targetPrefix = language === "Telugu" ? "te" : "en";
     const voices = getAvailableVoices();
 
+    // Never reuse a voice from the wrong language.
     const selectedVoice = voices.find(
-        voice => voice.voiceURI === selectedVoiceURI
+        voice => voice.voiceURI === selectedVoiceURI &&
+            voice.lang.toLowerCase().startsWith(targetPrefix)
+    ) || voices.find(
+        voice => voice.lang.toLowerCase().startsWith(targetPrefix)
     );
 
     if (selectedVoice) {
         utterance.voice = selectedVoice;
         utterance.lang = selectedVoice.lang;
     } else {
-        utterance.lang = language === "Telugu" ? "te-IN" : "en-US";
+        // Preserve the requested locale so the browser can select an
+        // installed system voice for the chosen interview language.
+        utterance.lang = targetLocale;
+        if (language === "Telugu") {
+            console.warn("No Telugu speech voice is exposed by this browser. Enable an installed Telugu system voice for spoken Telugu playback.");
+        }
     }
 
     utterance.rate = 0.95;

@@ -294,7 +294,17 @@ def build_system_instruction(visa_type: str, profile: dict, language: str = "Eng
     visa_context = VISA_INSTRUCTIONS[visa_type]
 
     profile_context = json.dumps(profile, ensure_ascii=False)
-    language_instruction = ("Conduct the entire interview in natural Telugu (తెలుగు). Ask questions in Telugu and understand Telugu answers." if language == "Telugu" else "Conduct the entire interview in natural English.")
+    is_telugu = language == "Telugu"
+    language_instruction = (
+        "Conduct the entire interview in natural Telugu (తెలుగు). Generate every spoken question and response in Telugu script. Understand Telugu answers. Do not switch to English; retain English only for proper names, official institution/employer names, and visa abbreviations when needed."
+        if is_telugu else
+        "Conduct the entire interview in natural English. Generate every spoken question and response in English."
+    )
+    conversational_style = (
+        "Use clear, simple, conversational Telugu that sounds natural when spoken aloud."
+        if is_telugu else
+        "Use clear, simple English."
+    )
 
     return f"""
 You are Riya, a friendly, professional U.S. visa mock-interview assistant.
@@ -305,7 +315,7 @@ LANGUAGE:
 PERSONALITY:
 - Warm, natural, calm, and professional.
 - Speak like a real interviewer having a conversation.
-- Use clear, simple English.
+- {conversational_style}
 - Ask exactly ONE short, direct question per turn.
 - Keep the spoken response to 1–2 short sentences and no more than 25 words whenever possible.
 - Never combine two questions or ask a multi-part question.
@@ -353,6 +363,7 @@ If a detail is missing, ask the applicant naturally.
 Never assume that a missing detail is true.
 
 Return only a brief natural interviewer line ending in exactly ONE clear question.
+Write the interviewer line entirely in the selected interview language. For Telugu, use natural Telugu script rather than English or transliteration.
 Keep it under 25 words and ask about one topic only. Do not combine questions.
 The interview_complete field must remain false during the conversation.
 """
