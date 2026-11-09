@@ -1,75 +1,110 @@
-# React + TypeScript + Vite
+# Riya AI — Visa Interview Practice
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Riya is a browser-based mock U.S. visa interview practice app. The frontend is a static GitHub Pages site; the FastAPI backend handles PDF profile extraction, secure OpenAI API requests, and interview feedback.
 
-Currently, two official plugins are available:
+## Current architecture
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Frontend:** GitHub Pages (existing HTML, CSS, and JavaScript)
+- **Backend:** FastAPI hosted on Railway
+- **Live voice:** OpenAI Realtime API over WebRTC
+- **Interview feedback and text endpoints:** OpenAI Responses API
+- **PDF processing:** PyMuPDF plus the existing local, allow-listed profile extractor
 
-## React Compiler
+The OpenAI API key stays on the backend. The browser sends its WebRTC offer to FastAPI; FastAPI creates the Realtime call with the server-side key and returns the SDP answer. No permanent API key is sent to GitHub Pages.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features retained
 
-## Expanding the ESLint configuration
+- F1, F2, B1/B2, H1B, and H4 practice categories
+- English interview setup
+- Questions-only preparation
+- Optional PDF upload (10 MB maximum, 20 pages maximum)
+- Extracted-profile review and editing before the interview
+- Visa-specific interviewer instructions
+- Natural speech-to-speech conversation with interruptions and adaptive follow-up questions
+- Mute/unmute, repeat question, interview timer, and end interview controls
+- Transcript-based final feedback, strengths, improvement areas, consistency notes, and practice tips
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+The PDF profile extractor only returns approved fields. It excludes names, addresses, passport details, dates of birth, contact details, and government identifiers.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 1. Deploy the backend to Railway
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. Sign in to Railway and create a new project.
+2. Choose **Deploy from GitHub Repo** and connect `AnushaKallempudi12/vee_bot`. While this pull request is still open, select the branch `migration/openai-realtime-railway` so Railway can deploy the new backend before the frontend change reaches the live GitHub Pages site.
+3. Open the new service's **Settings**.
+4. Set **Root Directory** to `/backend`. This repository also contains the static frontend at its root, so the backend service must use this subdirectory.
+5. Set the build command to:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+   ```bash
+   pip install -r requirements.txt
+   ```
 
+6. Set the start command to:
+
+   ```bash
+   uvicorn main:app --host 0.0.0.0 --port $PORT
+   ```
+
+7. Add these variables in the Railway service's **Variables** tab:
+
+   | Variable | Value |
+   |---|---|
+   | `OPENAI_API_KEY` | Your OpenAI API key |
+   | `OPENAI_TEXT_MODEL` | `gpt-6-luna` |
+   | `OPENAI_REALTIME_MODEL` | `gpt-realtime-2.1-mini` |
+   | `RIYA_INTERVIEW_DURATION_MINUTES` | `15` |
+
+8. In Railway **Settings → Networking**, generate a public domain.
+9. After deployment, open `https://YOUR-RAILWAY-DOMAIN/health`. It should return `"status": "healthy"` and `"openai_configured": true`.
+
+Do not commit your real API key or put it in frontend JavaScript. The ChatGPT subscription does not include API usage; API billing and limits are managed separately in the OpenAI Platform.
+
+## 2. Point GitHub Pages to Railway
+
+After Railway has generated the public domain:
+
+1. Open `app.js` in this repository.
+2. Replace the placeholder in this line with your Railway domain:
+
+   ```js
+   const BACKEND_URL = window.RIYA_BACKEND_URL || "https://YOUR-RAILWAY-DOMAIN";
+   ```
+
+3. Make this change on the `migration/openai-realtime-railway` branch and verify the Railway `/health` endpoint first.
+4. Then merge the migration pull request. If you want Railway to follow `main` for future deployments, change the Railway service's source branch to `main` after the merge.
+5. Wait for GitHub Pages to publish, then open the site using HTTPS and allow microphone access.
+
+The backend CORS allow-list already includes `https://anushakallempudi12.github.io`.
+
+## 3. Local backend development
+
+From the `backend` directory:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Add your OpenAI API key to backend/.env
+uvicorn main:app --reload --port 8000
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+For local frontend testing, temporarily set `BACKEND_URL` in `app.js` to `http://localhost:8000`. The browser must run on localhost or HTTPS to access the microphone.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## API endpoints
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- `GET /` — service welcome/status
+- `GET /health` — backend and OpenAI configuration status
+- `POST /api/interview/setup` — validate the selected interview setup
+- `POST /api/realtime/session` — create an OpenAI Realtime WebRTC session
+- `POST /api/interview/chat` — text-based interview response endpoint
+- `POST /api/interview/feedback` — generate structured interview feedback
+- `POST /api/documents/profile-preview` — extract approved fields from a PDF for user review
+- `POST /api/documents/inspect` — inspect a PDF
 
-```
+## Production note
+
+The Realtime session endpoint is public and this prototype does not yet include user sign-in or per-user quotas. Before sharing it widely, add authentication and rate limits so other visitors cannot consume your OpenAI API credits through your backend.
+
+## Validation status
+
+Code migration and static checks are performed in the migration pull request. A real microphone-to-OpenAI voice session, PDF upload on the deployed Railway service, and end-to-end feedback flow still need to be tested after adding the API key and Railway domain.
