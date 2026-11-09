@@ -996,7 +996,7 @@ function closeApp() {
     const uploadSub = $("#uploadSub");
 
     if (uploadTitle) uploadTitle.textContent = "Choose a PDF file";
-    if (uploadSub) uploadSub.textContent = "PDF only · Up to 10 MB";
+    if (uploadSub) uploadSub.textContent = "DS-160 or I-20 PDF · Up to 10 MB";
 
     $("#uploadArea")?.classList.add("hidden");
 
@@ -1164,7 +1164,7 @@ $$(".prep-option").forEach(button => {
             const uploadSub = $("#uploadSub");
 
             if (uploadTitle) uploadTitle.textContent = "Choose a PDF file";
-            if (uploadSub) uploadSub.textContent = "PDF only · Up to 10 MB";
+            if (uploadSub) uploadSub.textContent = "DS-160 or I-20 PDF · Up to 10 MB";
         }
     });
 });
@@ -1613,7 +1613,7 @@ addClick("#practiceAgain", () => {
     const uploadTitle = $("#uploadTitle");
     const uploadSub = $("#uploadSub");
     if (uploadTitle) uploadTitle.textContent = "Choose a PDF file";
-    if (uploadSub) uploadSub.textContent = "PDF only · Up to 10 MB";
+    if (uploadSub) uploadSub.textContent = "DS-160 or I-20 PDF · Up to 10 MB";
     $(".prep-option").forEach(option => {
         option.classList.toggle("selected", option.dataset.prep === "questions");
     });
