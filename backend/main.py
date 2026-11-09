@@ -53,7 +53,15 @@ app.add_middleware(
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_PDF_PAGES = 20
 
-VISA_TYPES = Literal["F1", "F2", "B1/B2", "H1B"]
+try:
+    SESSION_DURATION_MINUTES = max(
+        5,
+        min(60, int(os.getenv("RIYA_INTERVIEW_DURATION_MINUTES", "15")))
+    )
+except ValueError:
+    SESSION_DURATION_MINUTES = 15
+
+VISA_TYPES = Literal["F1", "F2", "B1/B2", "H1B", "H4"]
 
 
 # --------------------------------------------------
@@ -243,15 +251,29 @@ Distinguish business visitor purposes from tourism or personal visits.
 You are interviewing an applicant practicing for an H1B work visa.
 
 Explore topics naturally, including:
-- The sponsoring employer.
-- Job title and responsibilities.
-- Work location.
-- The applicant's qualifications and experience.
-- How the role relates to their education or experience.
-- Compensation and employment arrangements.
-- Understanding of the offered position.
+- The sponsoring employer and how the applicant learned about the opportunity.
+- Job title, day-to-day responsibilities, and work location.
+- The applicant's education, qualifications, and relevant experience.
+- How the applicant's background relates to the offered role.
+- Compensation and employment arrangements, when relevant.
+- The applicant's understanding of the position and employer.
 
-Do not invent employer details or legal requirements.
+Ask follow-up questions when an answer is vague or inconsistent. Do not invent employer details or legal requirements.
+""",
+
+    "H4": """
+You are interviewing an applicant practicing for an H4 dependent visa.
+
+Explore topics naturally, including:
+- The applicant's relationship to the principal H1B visa holder.
+- The principal applicant's employer, job title, work location, and current work situation.
+- How and when the applicant plans to accompany or join the principal applicant.
+- Intended living arrangements and expected duration of stay.
+- How the household will be financially supported.
+- The applicant's own circumstances and plans during the stay.
+- Relevant family and travel context.
+
+Address the applicant as the H4 dependent, not as the H1B worker. Ask follow-up questions when details are unclear. Do not invent facts or legal requirements.
 """
 }
 
@@ -275,14 +297,15 @@ INTERVIEW RULES:
 - Start by introducing yourself as Riya.
 - Ask the applicant what name they prefer to be called.
 - Conduct a realistic practice interview.
-- Continue asking questions without a fixed question limit.
-- Adapt every next question to the applicant's previous answer.
-- Ask follow-up questions when answers are vague, incomplete, or inconsistent.
-- Explore different relevant topics rather than repeating questions.
-- Do not ask all questions from a fixed list.
+- Conduct a time-bounded mock interview; the application controls the session duration and ends the session when time expires.
+- Adapt every next question to the applicant's previous answer and the selected visa category.
+- Choose questions dynamically; never follow a fixed script or predetermined question sequence.
+- Ask natural follow-up questions when answers are vague, incomplete, or need clarification.
+- Explore a varied range of relevant visa-specific topics over the session without forcing every topic into every interview.
+- Use the reviewed document profile as context when available; verify important details conversationally rather than assuming extracted fields are correct.
+- Avoid repeating questions already answered unless clarification is genuinely needed.
 - Do not provide feedback after every answer unless the applicant requests it.
-- Do not end the interview yourself just because several topics have been covered.
-- Continue until the applicant explicitly asks to stop.
+- Do not end the interview yourself based only on the number of questions or topics covered; the application controls the time limit and the applicant may also ask to stop.
 - Never tell an applicant to fabricate information or hide relevant facts.
 - Never guarantee visa approval or predict the actual consular decision.
 - You are a practice assistant, not an immigration lawyer or government official.
@@ -365,7 +388,17 @@ def build_gemini_contents(
 ):
     contents = []
 
+    # Riya's initial greeting is not a user turn. Start the
+    # model conversation with the applicant's first answer.
+    applicant_has_spoken = False
+
     for turn in history:
+        if turn["role"] == "assistant" and not applicant_has_spoken:
+            continue
+
+        if turn["role"] == "user":
+            applicant_has_spoken = True
+
         role = "model" if turn["role"] == "assistant" else "user"
 
         contents.append(
@@ -436,7 +469,9 @@ def health_check():
     return {
         "status": "healthy",
         "service": "Riya AI API",
-        "gemini_configured": bool(gemini_client)
+        "gemini_configured": bool(gemini_client),
+        "gemini_model": GEMINI_MODEL,
+        "session_duration_minutes": SESSION_DURATION_MINUTES
     }
 
 
@@ -455,7 +490,8 @@ def create_interview_setup(setup: InterviewSetup):
         "document_processing": "existing",
         "interview_ai": (
             "configured" if gemini_client else "not_configured"
-        )
+        ),
+        "session_duration_minutes": SESSION_DURATION_MINUTES
     }
 
 
