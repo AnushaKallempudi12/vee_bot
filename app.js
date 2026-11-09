@@ -1673,6 +1673,17 @@ setTimeout(() => {
     setTimeout(() => {
         heroMascot.dataset.state = "idle";
     }, 1800);
+
+    const speech = $("#riyaSpeech");
+    heroMascot.addEventListener("click", () => {
+        const isGreeting = heroMascot.dataset.state !== "wave";
+        heroMascot.dataset.state = isGreeting ? "wave" : "idle";
+        if (speech) {
+            speech.innerHTML = isGreeting
+                ? "<strong>It's nice to meet you!</strong><span>Choose Start practicing whenever you're ready. I'll guide you through it.</span>"
+                : "<strong>Hi, I'm Riya!</strong><span>Tap me to say hello. I'm here whenever you're ready to practice.</span>";
+        }
+    });
 }, 700);
 
 // ==================================================
