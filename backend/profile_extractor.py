@@ -18,6 +18,11 @@ ALLOWED_FIELDS = {
     "relationship_to_student": ["relationship to principal applicant", "relationship to student", "relationship to f1 student"],
     "funding_source": ["who will fund your studies", "source of funds", "how will you pay for your studies", "financial support"],
     "previous_education": ["previous education", "prior education", "previous school", "name of previous institution"],
+    "travel_companions": ["persons traveling with you", "persons traveling with you to the us", "traveling with you", "other persons traveling with you"],
+    "us_contact_organization": ["organization name in the united states", "us point of contact organization", "name of company or organization"],
+    "us_contact_relationship": ["relationship to you", "relationship to applicant", "relationship to you in the united states"],
+    "current_occupation": ["current occupation"],
+    "work_location": ["work location", "intended work location", "place of employment"],
 }
 
 NAME_LABELS = {
@@ -62,7 +67,7 @@ def contains_sensitive_pattern(value: str) -> bool:
 def clean_candidate(value: str, allow_name: bool = False) -> Optional[str]:
     value = re.sub(r"[\x00-\x1f\x7f]", " ", value)
     value = re.sub(r"\s+", " ", value).strip(" :|-\t")
-    if not value or len(value) > 180:
+    if not value or len(value) > 250:
         return None
     if allow_name:
         value = re.sub(r"[^A-Za-zÀ-ÖØ-öø-ÿ ,.'-]", "", value).strip()
@@ -78,16 +83,63 @@ def clean_candidate(value: str, allow_name: bool = False) -> Optional[str]:
     return value
 
 
+def _is_label_line(line: str) -> bool:
+    normalized = normalize_label(line)
+    if normalized in LABEL_LOOKUP or normalized in NAME_LABELS:
+        return True
+    return any(normalized.startswith(label + " ") for label in (*LABEL_LOOKUP.keys(), *NAME_LABELS) if len(label) >= 5)
+
+
+def _value_after_label(line: str, labels: set[str]):
+    normalized = normalize_label(line)
+    for label in sorted(labels, key=len, reverse=True):
+        if normalized == label:
+            return label, None
+        if normalized.startswith(label + " "):
+            words = label.split()
+            original_words = re.split(r"\s+", line.strip())
+            remainder = " ".join(original_words[len(words):]).strip(" :|\t-")
+            return label, remainder or None
+    return None, None
+
+
 def _next_value(lines: list[str], index: int) -> Optional[str]:
-    for candidate in lines[index + 1:index + 3]:
-        # Avoid consuming another label as a value.
-        if normalize_label(candidate) in LABEL_LOOKUP or normalize_label(candidate) in NAME_LABELS:
-            return None
+    collected = []
+    for candidate in lines[index + 1:index + 5]:
+        if _is_label_line(candidate):
+            break
         cleaned = clean_candidate(candidate)
         if cleaned:
-            return cleaned
-    return None
+            collected.append(cleaned)
+        if len(" ".join(collected)) >= 250:
+            break
+    return clean_candidate(" ".join(collected))
 
+def detect_visa_category(text: str, document_type: Optional[str] = None) -> dict:
+    """Detect explicit visa classes only; ambiguous forms require applicant confirmation."""
+    normalized = normalize_label(text)
+    admission = re.search(r"class of admission\s*(?:[:\-]\s*)?f\s*[- ]?([12])\b", normalized, re.I)
+    if admission:
+        return {"detected_visa_type": "F1" if admission.group(1) == "1" else "F2", "visa_detection_confidence": "high"}
+    explicit = re.search(r"(?:visa class|visa category|class of visa|visa type)\s*(?:is|:)?\s*(b\s*1\s*b\s*2|h\s*1\s*b|h\s*4|f\s*1|f\s*2)\b", normalized, re.I)
+    if explicit:
+        token = re.sub(r"[^A-Z0-9]", "", explicit.group(1).upper())
+        mapping = {"B1B2": "B1/B2", "H1B": "H1B", "H4": "H4", "F1": "F1", "F2": "F2"}
+        if token in mapping:
+            return {"detected_visa_type": mapping[token], "visa_detection_confidence": "high"}
+    if "spouse child of an f1 student" in normalized or "dependent of an f1 student" in normalized:
+        return {"detected_visa_type": "F2", "visa_detection_confidence": "high"}
+    if "dependent of an h1b" in normalized or "spouse of an h1b" in normalized:
+        return {"detected_visa_type": "H4", "visa_detection_confidence": "high"}
+    if "temporary business or pleasure visitor" in normalized:
+        return {"detected_visa_type": "B1/B2", "visa_detection_confidence": "high"}
+    if "academic or language student" in normalized:
+        return {"detected_visa_type": "F1", "visa_detection_confidence": "high"}
+    if "temporary worker in a specialty occupation" in normalized:
+        return {"detected_visa_type": "H1B", "visa_detection_confidence": "high"}
+    if "temporary worker" in normalized:
+        return {"detected_visa_type": None, "visa_detection_confidence": "ambiguous"}
+    return {"detected_visa_type": None, "visa_detection_confidence": "unknown"}
 
 def extract_profile(text: str) -> dict:
     lines = [re.sub(r"\s+", " ", line).strip() for line in text.splitlines() if line.strip()]
@@ -100,16 +152,18 @@ def extract_profile(text: str) -> dict:
             break
 
     name_parts = {}
+    all_labels = set(LABEL_LOOKUP.keys()) | NAME_LABELS
     for index, line in enumerate(lines):
-        # Common PDF text extraction layouts: "Label: Value" or label/value on adjacent lines.
-        if ":" in line:
-            label, candidate = line.split(":", 1)
-        else:
-            label, candidate = line, ""
-
+        label, candidate = line.split(":", 1) if ":" in line else (line, "")
         normalized_label = normalize_label(label)
+        inline_candidate = candidate.strip() or None
+        if normalized_label not in all_labels:
+            matched, remainder = _value_after_label(line, all_labels)
+            if matched:
+                normalized_label, inline_candidate = matched, remainder
+
         if normalized_label in NAME_LABELS:
-            value = clean_candidate(candidate, allow_name=True) if candidate else None
+            value = clean_candidate(inline_candidate, allow_name=True) if inline_candidate else None
             if not value:
                 value = _next_value(lines, index)
             if value:
@@ -123,12 +177,11 @@ def extract_profile(text: str) -> dict:
 
         field_name = LABEL_LOOKUP.get(normalized_label)
         if field_name and field_name not in profile:
-            value = clean_candidate(candidate) if candidate else None
+            value = clean_candidate(inline_candidate) if inline_candidate else None
             if not value:
                 value = _next_value(lines, index)
             if value:
                 profile[field_name] = value
-
     if "applicant_name" not in profile and (name_parts.get("given") or name_parts.get("surname")):
         profile["applicant_name"] = " ".join(
             part for part in (name_parts.get("given"), name_parts.get("surname")) if part

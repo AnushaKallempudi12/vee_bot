@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
 
-from profile_extractor import extract_profile
+from profile_extractor import extract_profile, detect_visa_category
 
 
 # --------------------------------------------------
@@ -141,6 +141,12 @@ ALLOWED_PROFILE_FIELDS = {
     "relationship_to_student",
     "funding_source",
     "previous_education",
+    "travel_companions",
+    "us_contact_organization",
+    "us_contact_relationship",
+    "current_occupation",
+    "work_location",
+    "document_visa_type",
 }
 
 
@@ -585,6 +591,8 @@ async def interview_chat(request: InterviewChatRequest):
         }
 
     safe_profile = sanitize_profile(request.profile)
+    if safe_profile.get("document_visa_type") and safe_profile["document_visa_type"] != request.visa_type:
+        raise HTTPException(status_code=409, detail="The selected visa does not match the uploaded document. Please correct the visa selection or upload the matching PDF.")
     safe_history = sanitize_history(request.history)
 
     if request.start_interview:
@@ -648,6 +656,8 @@ async def interview_feedback(request: FeedbackRequest):
 
     safe_history = sanitize_history(request.history)
     safe_profile = sanitize_profile(request.profile)
+    if safe_profile.get("document_visa_type") and safe_profile["document_visa_type"] != request.visa_type:
+        raise HTTPException(status_code=409, detail="The selected visa does not match the uploaded document.")
 
     if not safe_history:
         raise HTTPException(
@@ -874,6 +884,9 @@ async def preview_document_profile(
             )
             has_selectable_text = bool(extracted_text.strip())
             profile = extract_profile(extracted_text) if has_selectable_text else {}
+            visa_detection = detect_visa_category(extracted_text, profile.get("document_type")) if has_selectable_text else {"detected_visa_type": None, "visa_detection_confidence": "unknown"}
+            detected_visa = visa_detection.get("detected_visa_type")
+            visa_match = "match" if detected_visa == visa_type else "mismatch" if detected_visa else "unconfirmed"
 
             del extracted_text
 
@@ -885,6 +898,10 @@ async def preview_document_profile(
                     else "No selectable text was found. This may be a scanned PDF; you can still continue without extracted document details."
                 ),
                 "visa_type": visa_type,
+                "selected_visa_type": visa_type,
+                "detected_visa_type": detected_visa,
+                "visa_detection_confidence": visa_detection.get("visa_detection_confidence", "unknown"),
+                "visa_match": visa_match,
                 "profile": profile,
                 "review_required": True,
                 "document_text_available": has_selectable_text,

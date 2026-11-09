@@ -65,6 +65,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html app.js styles.css _site/
+          cp -R assets _site/
           touch _site/.nojekyll
           python - <<'PY'
           from pathlib import Path

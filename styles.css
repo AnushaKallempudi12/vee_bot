@@ -738,3 +738,9 @@
 @media(max-width:650px){
   .riya-presence{height:350px;width:min(320px,100%)}
 }
+
+
+/* Visa mismatch warning and extracted profile review actions */
+.visa-mismatch{border:1px solid rgba(255,120,120,.42);background:rgba(120,35,50,.18);border-radius:14px;padding:16px;margin:16px 0;color:#ffe6e6}
+.visa-mismatch-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.profile-review-notice:not(.visa-mismatch){margin:16px 0}

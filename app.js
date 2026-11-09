@@ -29,6 +29,7 @@ let visa = "F1";
 let language = "English";
 let prep = "questions";
 let file = null;
+let documentVisaType = null;
 
 let extractedProfile = {};
 let interviewHistory = [];
@@ -45,6 +46,7 @@ let requestInProgress = false;
 let interviewActive = false;
 let endingInterview = false;
 let recognitionShouldSubmit = false;
+let recognitionSilenceTimer = null;
 
 let interviewDurationMinutes = 15;
 let interviewTimer = null;
@@ -70,7 +72,12 @@ const profileLabels = {
     employer: "Employer",
     job_title: "Job title",
     job_duties: "Job duties",
-    relationship_to_student: "Relationship to F1 student"
+    relationship_to_student: "Relationship to principal applicant",
+    travel_companions: "Travel companions",
+    us_contact_organization: "U.S. contact organization",
+    us_contact_relationship: "Relationship to U.S. contact",
+    current_occupation: "Current occupation",
+    work_location: "Work location"
 };
 
 const profileAliases = {
@@ -120,7 +127,14 @@ const profileAliases = {
     job_duties: "job_duties",
 
     relationship: "relationship_to_student",
-    relationship_to_student: "relationship_to_student"
+    relationship_to_student: "relationship_to_student",
+    travel_companions: "travel_companions",
+    persons_traveling_with_you: "travel_companions",
+    us_contact_organization: "us_contact_organization",
+    organization_name: "us_contact_organization",
+    us_contact_relationship: "us_contact_relationship",
+    current_occupation: "current_occupation",
+    work_location: "work_location"
 };
 
 // ==================================================
@@ -441,14 +455,14 @@ function startListening() {
     }
 
     currentTranscript = "";
-    recognitionShouldSubmit = true;
+    recognitionShouldSubmit = false;
 
     const instance = new SpeechRecognition();
 
     recognition = instance;
 
     instance.lang = "en-US";
-    instance.continuous = false;
+    instance.continuous = true;
     instance.interimResults = true;
     instance.maxAlternatives = 1;
 
@@ -488,6 +502,15 @@ function startListening() {
         }
 
         currentTranscript = finalText.trim();
+        if (finalText.trim()) {
+            clearTimeout(recognitionSilenceTimer);
+            recognitionSilenceTimer = setTimeout(() => {
+                if (recognition === instance) {
+                    recognitionShouldSubmit = true;
+                    try { instance.stop(); } catch (error) { console.warn("Could not stop recognition after silence:", error); }
+                }
+            }, 3000);
+        }
 
         const displayText =
             `${finalText} ${interimText}`.trim();
@@ -525,6 +548,8 @@ function startListening() {
         }
 
         const answer = currentTranscript.trim();
+        clearTimeout(recognitionSilenceTimer);
+        recognitionSilenceTimer = null;
 
         if (!answer) {
             if (interviewActive && !endingInterview) {
@@ -546,8 +571,14 @@ function startListening() {
 
         console.log("Applicant answer:", answer);
 
-        if (interviewActive && !endingInterview) {
-            await sendAnswerToRiya(answer);
+        if (interviewActive && !endingInterview && answer) {
+            if (recognitionShouldSubmit) {
+                await sendAnswerToRiya(answer);
+            } else {
+                recognitionSilenceTimer = setTimeout(async () => {
+                    if (interviewActive && !endingInterview && !requestInProgress) await sendAnswerToRiya(answer);
+                }, 3000);
+            }
         }
     };
 
@@ -1199,6 +1230,7 @@ pdfInput?.addEventListener("change", event => {
     }
 
     file = selectedFile;
+    documentVisaType = null;
 
     const uploadTitle = $("#uploadTitle");
     const uploadSub = $("#uploadSub");
@@ -1302,6 +1334,57 @@ function showProfileReview(profileData) {
 
     updateStep("02", "04");
 
+    const mismatch = profileData.visa_match === "mismatch";
+    const detectedVisa = profileData.detected_visa_type;
+    let visaNotice = $("#visaMismatchNotice");
+    if (!visaNotice) {
+        visaNotice = document.createElement("div");
+        visaNotice.id = "visaMismatchNotice";
+        visaNotice.className = "profile-review-notice";
+        const intro = profileReview.querySelector(".setup-intro");
+        if (intro) intro.insertAdjacentElement("afterend", visaNotice);
+    }
+    if (visaNotice) {
+        visaNotice.replaceChildren();
+        if (mismatch && detectedVisa) {
+            visaNotice.className = "profile-review-notice visa-mismatch";
+            const message = document.createElement("p");
+            message.textContent = "Visa mismatch: you selected " + visa + ", but this PDF identifies " + detectedVisa + ". Change your selection or upload the correct document before starting.";
+            const actions = document.createElement("div");
+            actions.className = "visa-mismatch-actions";
+            const switchButton = document.createElement("button");
+            switchButton.type = "button";
+            switchButton.className = "button button-primary";
+            switchButton.textContent = "Switch to " + detectedVisa;
+            switchButton.addEventListener("click", () => {
+                visa = detectedVisa;
+                $(".visa-option").forEach(option => option.classList.toggle("selected", option.dataset.visa === visa));
+                profileReview.classList.add("hidden");
+                setup?.classList.remove("hidden");
+                $("#continueButton")?.click();
+            });
+            const uploadButton = document.createElement("button");
+            uploadButton.type = "button";
+            uploadButton.className = "button button-quiet";
+            uploadButton.textContent = "Choose a different PDF";
+            uploadButton.addEventListener("click", () => {
+                profileReview.classList.add("hidden");
+                setup?.classList.remove("hidden");
+                $("#pdfInput")?.focus();
+            });
+            actions.append(switchButton, uploadButton);
+            visaNotice.append(message, actions);
+        } else if (profileData.visa_match === "unconfirmed") {
+            visaNotice.className = "profile-review-notice";
+            visaNotice.textContent = "We could not reliably identify the exact visa category in this PDF. Please make sure the selected visa matches your document before continuing.";
+        } else {
+            visaNotice.className = "profile-review-notice";
+            visaNotice.textContent = "The document category matches your selected visa. Review the details Riya will use for your practice.";
+        }
+    }
+    const confirmButton = $("#confirmProfile");
+    if (confirmButton) confirmButton.disabled = mismatch;
+
     profileFields.replaceChildren();
 
     const entries = Object.entries(extractedProfile);
@@ -1376,6 +1459,7 @@ async function startInterview(profile = {}) {
     }
 
     extractedProfile = { ...profile };
+    if (prep === "document" && documentVisaType) extractedProfile.document_visa_type = documentVisaType;
     interviewDurationMinutes = Number(result.session_duration_minutes) || 15;
 
     await showInterview();
@@ -1421,6 +1505,7 @@ addClick("#continueButton", async () => {
                 );
             }
 
+            documentVisaType = result.detected_visa_type || null;
             showProfileReview(result);
             notify("Please review your extracted details.");
 
@@ -1462,6 +1547,8 @@ addClick("#confirmProfile", async () => {
 addClick("#backToSetup", () => {
     profileReview?.classList.add("hidden");
     setup?.classList.remove("hidden");
+    const confirmButton = $("#confirmProfile");
+    if (confirmButton) confirmButton.disabled = false;
 
     updateStep("01", "04");
 });
@@ -1536,24 +1623,6 @@ addClick("#micButton", () => {
     } else {
         startListening();
     }
-});
-
-// ==================================================
-// REPEAT RIYA'S LAST QUESTION
-// ==================================================
-
-addClick("#repeatButton", () => {
-    if (!currentQuestion || !interviewActive || endingInterview || requestInProgress) return;
-
-    if (recognition) {
-        recognition.onend = null;
-        recognition.onerror = null;
-        try { recognition.abort(); } catch {}
-        recognition = null;
-        recording = false;
-    }
-
-    speakRiya(currentQuestion, true);
 });
 
 // ==================================================
