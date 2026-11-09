@@ -1,4 +1,4 @@
-name: Riya AI — validate and deploy GitHub Pages
+name: Riya AI — validate source
 
 on:
   pull_request:
@@ -51,52 +51,3 @@ jobs:
 
       - name: Test PDF extraction and visa classification
         run: python -m unittest discover -s backend -p "test_*.py"
-
-  deploy:
-    name: Publish Riya AI static frontend
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: validate
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Prepare the Pages artifact
-        run: |
-          mkdir -p _site
-          cp index.html app.js styles.css _site/
-          cp -R assets _site/
-          touch _site/.nojekyll
-          python - <<'PY'
-          from pathlib import Path
-          import os
-          import re
-
-          index = Path("_site/index.html")
-          html = index.read_text()
-          html, replacements = re.subn(
-              r'app\.js(?:\?v=[^"]*)?(?=")',
-              f'app.js?v={os.environ["GITHUB_SHA"]}',
-              html,
-          )
-          if replacements != 1:
-              raise SystemExit(
-                  f"Expected exactly one app.js script reference; found {replacements}"
-              )
-          index.write_text(html)
-          PY
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload static site
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
