@@ -237,9 +237,23 @@ const SpeechRecognition =
     window.SpeechRecognition ||
     window.webkitSpeechRecognition;
 
+let activeRiyaAudio = null;
+let activeRiyaAudioUrl = null;
+
 function stopRiyaSpeaking() {
     if ("speechSynthesis" in window) {
         window.speechSynthesis.cancel();
+    }
+
+    if (activeRiyaAudio) {
+        activeRiyaAudio.pause();
+        activeRiyaAudio.currentTime = 0;
+        activeRiyaAudio = null;
+    }
+
+    if (activeRiyaAudioUrl) {
+        URL.revokeObjectURL(activeRiyaAudioUrl);
+        activeRiyaAudioUrl = null;
     }
 }
 
@@ -333,6 +347,65 @@ function setupVoiceSelector() {
     select.value = selectedVoiceURI;
 }
 
+async function speakRiyaWithGeminiTelugu(text, listenAfterSpeaking) {
+    setState("thinking", "Riya is preparing Telugu speech");
+
+    const result = await backendRequest("/api/interview/speech", {
+        text,
+        language: "Telugu"
+    });
+
+    if (!interviewActive || endingInterview) return;
+
+    const binary = atob(result.audio_base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++) {
+        bytes[index] = binary.charCodeAt(index);
+    }
+
+    const audioUrl = URL.createObjectURL(
+        new Blob([bytes], { type: result.mime_type || "audio/wav" })
+    );
+    const audio = new Audio(audioUrl);
+    activeRiyaAudio = audio;
+    activeRiyaAudioUrl = audioUrl;
+
+    audio.onplay = () => {
+        setState("speaking", "Riya is speaking Telugu");
+        const caption = $("#captionBox");
+        if (caption) caption.textContent = text;
+    };
+
+    audio.onended = () => {
+        if (activeRiyaAudio === audio) activeRiyaAudio = null;
+        if (activeRiyaAudioUrl === audioUrl) activeRiyaAudioUrl = null;
+        URL.revokeObjectURL(audioUrl);
+
+        if (endingInterview || !interviewActive) return;
+        if (interviewTimeExpired) {
+            finishInterview(true);
+            return;
+        }
+
+        setState("idle", "Riya is ready");
+        if (listenAfterSpeaking && !microphoneMuted) {
+            setTimeout(() => {
+                if (interviewActive && !endingInterview) startListening();
+            }, 500);
+        }
+    };
+
+    audio.onerror = () => {
+        if (activeRiyaAudio === audio) activeRiyaAudio = null;
+        if (activeRiyaAudioUrl === audioUrl) activeRiyaAudioUrl = null;
+        URL.revokeObjectURL(audioUrl);
+        setState("idle", "Riya is ready");
+        notify("Telugu audio playback failed. Please try again.");
+    };
+
+    await audio.play();
+}
+
 function speakRiya(text, listenAfterSpeaking = true) {
     if (riyaMuted) {
         setState("idle", "Riya's voice is muted");
@@ -341,8 +414,23 @@ function speakRiya(text, listenAfterSpeaking = true) {
         }
         return;
     }
+
     if (!text || !text.trim()) {
         console.error("Riya received no text to speak.");
+        return;
+    }
+
+    stopRiyaSpeaking();
+    currentQuestion = text;
+
+    // Telugu audio is generated on the backend, independent of installed
+    // browser voices, while English continues using browser speech synthesis.
+    if (language === "Telugu") {
+        speakRiyaWithGeminiTelugu(text, listenAfterSpeaking).catch(error => {
+            console.error("Gemini Telugu speech failed:", error);
+            setState("idle", "Riya is ready");
+            notify(error.message || "Riya could not generate Telugu speech.");
+        });
         return;
     }
 
@@ -351,34 +439,20 @@ function speakRiya(text, listenAfterSpeaking = true) {
         return;
     }
 
-    stopRiyaSpeaking();
-
-    currentQuestion = text;
-
     const utterance = new SpeechSynthesisUtterance(text);
-
-    const targetLocale = language === "Telugu" ? "te-IN" : "en-US";
-    const targetPrefix = language === "Telugu" ? "te" : "en";
     const voices = getAvailableVoices();
-
-    // Never reuse a voice from the wrong language.
     const selectedVoice = voices.find(
         voice => voice.voiceURI === selectedVoiceURI &&
-            voice.lang.toLowerCase().startsWith(targetPrefix)
+            voice.lang.toLowerCase().startsWith("en")
     ) || voices.find(
-        voice => voice.lang.toLowerCase().startsWith(targetPrefix)
+        voice => voice.lang.toLowerCase().startsWith("en")
     );
 
     if (selectedVoice) {
         utterance.voice = selectedVoice;
         utterance.lang = selectedVoice.lang;
     } else {
-        // Preserve the requested locale so the browser can select an
-        // installed system voice for the chosen interview language.
-        utterance.lang = targetLocale;
-        if (language === "Telugu") {
-            console.warn("No Telugu speech voice is exposed by this browser. Enable an installed Telugu system voice for spoken Telugu playback.");
-        }
+        utterance.lang = "en-US";
     }
 
     utterance.rate = 0.95;
@@ -387,31 +461,22 @@ function speakRiya(text, listenAfterSpeaking = true) {
 
     utterance.onstart = () => {
         setState("speaking", "Riya is speaking");
-
         const caption = $("#captionBox");
         if (caption) caption.textContent = text;
-
         console.log("Riya speaking:", text);
     };
 
     utterance.onend = () => {
         console.log("Riya finished speaking.");
-
         if (endingInterview || !interviewActive) return;
-
         if (interviewTimeExpired) {
             finishInterview(true);
             return;
         }
-
         setState("idle", "Riya is ready");
-
         if (listenAfterSpeaking && !microphoneMuted) {
-            // Allow the browser to finish the speech event first.
             setTimeout(() => {
-                if (interviewActive && !endingInterview) {
-                    startListening();
-                }
+                if (interviewActive && !endingInterview) startListening();
             }, 500);
         }
     };
