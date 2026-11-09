@@ -2,6 +2,7 @@ import os
 import re
 import json
 import asyncio
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
 import fitz
@@ -23,6 +24,7 @@ load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+LIVE_MODEL = os.getenv("GEMINI_LIVE_MODEL", "gemini-3.8-live")
 
 gemini_client = (
     genai.Client(api_key=GEMINI_API_KEY)
@@ -67,6 +69,11 @@ VISA_TYPES = Literal["F1", "F2", "B1/B2", "H1B", "H4"]
 # --------------------------------------------------
 # DATA MODELS
 # --------------------------------------------------
+
+class LiveTokenRequest(BaseModel):
+    visa_type: VISA_TYPES
+    profile: Optional[dict] = None
+
 
 class InterviewSetup(BaseModel):
     visa_type: VISA_TYPES
@@ -498,6 +505,74 @@ def create_interview_setup(setup: InterviewSetup):
 # --------------------------------------------------
 # GEMINI INTERVIEW CHAT
 # --------------------------------------------------
+
+@app.post("/api/live/token")
+def create_live_token(request: LiveTokenRequest):
+    """Issue a single-use, short-lived token for a browser Live API session."""
+    if not gemini_client:
+        raise HTTPException(
+            status_code=503,
+            detail="Gemini API key is not configured on the backend. Add GEMINI_API_KEY in Render environment variables."
+        )
+
+    safe_profile = sanitize_profile(request.profile)
+    system_instruction = build_system_instruction(
+        request.visa_type,
+        safe_profile
+    ) + """
+
+LIVE VOICE CONVERSATION:
+- Speak directly to the applicant in natural, concise spoken English.
+- This is a live mock visa interview, not a text chat.
+- Ask exactly one clear question at a time, then listen patiently.
+- Adapt each follow-up to what the applicant actually says; do not use a fixed question list.
+- Do not narrate internal reasoning, describe audio processing, or read out formatting.
+- If the applicant asks to stop or says they are done, politely conclude the interview.
+- Never claim to be a consular officer or predict the visa decision.
+"""
+
+    try:
+        now = datetime.now(timezone.utc)
+        token = gemini_client.auth_tokens.create(
+            config={
+                "uses": 1,
+                "expire_time": now + timedelta(minutes=25),
+                "new_session_expire_time": now + timedelta(minutes=1),
+                "live_connect_constraints": {
+                    "model": LIVE_MODEL,
+                    "config": {
+                        "response_modalities": ["AUDIO"],
+                        "system_instruction": {
+                            "parts": [{"text": system_instruction}]
+                        },
+                        "input_audio_transcription": {},
+                        "output_audio_transcription": {},
+                        "speech_config": {
+                            "voice_config": {
+                                "prebuilt_voice_config": {
+                                    "voice_name": "Aoede"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+        if not getattr(token, "name", None):
+            raise RuntimeError("Gemini did not return an ephemeral token.")
+        return {
+            "status": "success",
+            "token": token.name,
+            "model": LIVE_MODEL,
+            "session_duration_minutes": SESSION_DURATION_MINUTES
+        }
+    except Exception as error:
+        print("LIVE TOKEN ERROR:", repr(error), flush=True)
+        raise HTTPException(
+            status_code=502,
+            detail="Riya could not start a live voice session. Check the Gemini Live API model and API-key access in Render."
+        )
+
 
 @app.post("/api/interview/chat")
 async def interview_chat(request: InterviewChatRequest):
